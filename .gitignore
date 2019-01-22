@@ -1,3 +1,5 @@
+build
+VTK
 .sconf_temp build html latex VTK*
 # Created by https://www.gitignore.io/api/vim,c++,scons
 ### C++ ###
