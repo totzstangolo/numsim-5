@@ -121,6 +121,9 @@ public:
   /// Updates the pressure field t
   void Update_T(Grid *t, real_t hot, real_t cold) const;
 
+  multi_real_t GetInflowVelo() const{
+      return _velocity;
+  }
 
 private:
   const Communicator *_comm;

@@ -25,9 +25,9 @@ srcs = ['src/main.cpp',
         'src/grid.cpp',
         'src/iterator.cpp',
         'src/parameter.cpp',
-        'src/solver.cpp',
         'src/vtk.cpp',
-	'src/communicator.cpp',
+	    'src/communicator.cpp',
+        'src/distri.cpp'
         ]
 
 # check if debug-visualization should be build.

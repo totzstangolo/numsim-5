@@ -61,5 +61,6 @@ class Grid;
 class Parameter;
 class Solver;
 class Compute;
+class Distri;
 
 #endif // __TYPEDEF_HPP

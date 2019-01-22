@@ -85,6 +85,9 @@ private:
   // container for interpolating whichever values
   Grid *_tmp;
 
+  Distri *_f;
+  Distri *_f_new;
+
   Solver *_solver;
 
   const Geometry *_geom;

@@ -6,6 +6,7 @@
 #include "compute.hpp"
 #include "iterator.hpp"
 #include "solver.hpp"
+#include "distri.hpp"
 #include <cstdlib>
 #include <iostream>
 #include <cmath>
@@ -34,36 +35,28 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 	_epslimit = _param->Eps() * _param->Eps() * _geom->Size()[0] * _geom->Size()[1];
 
 	// creating grids with offset
-	multi_real_t compute_offset_x;
-	compute_offset_x[0] = 0.0;
-	compute_offset_x[1] = -0.5 * h[1];
-	_u = new Grid(_geom, compute_offset_x);
-	_F = new Grid(_geom, compute_offset_x);
+	multi_real_t compute_offset;
+	compute_offset[0] = -0.5 * h[0];
+	compute_offset[1] = -0.5 * h[0];
+
+	_f = new Distri(_geom,compute_offset);
+	_f_new = new Distri(_geom,compute_offset);
+	_f->Initialize(1.0);
+	_f_new->Initialize(1.0);
+
+	_u = new Grid(_geom, compute_offset);
 	_u->Initialize(0);
 	_geom->Update_U(_u);
 
-	multi_real_t compute_offset_y;
-	compute_offset_y[0] = -0.5 * h[0];
-	compute_offset_y[1] = 0.0;
-	_v = new Grid(_geom, compute_offset_y);
-	_G = new Grid(_geom, compute_offset_y);
+	_v = new Grid(_geom, compute_offset);
 	_v->Initialize(0);
 	_geom->Update_V(_v);
 
-	multi_real_t compute_offset_p;
-	compute_offset_p[0] = -0.5 * h[0];
-	compute_offset_p[1] = -0.5 * h[1];
-	_p = new Grid(_geom, compute_offset_p);
-	_T = new Grid(_geom, compute_offset_p);
-	_rhs = new Grid(_geom, compute_offset_p);
-	_tmp = new Grid(_geom, compute_offset_p);
+	_p = new Grid(_geom, compute_offset);
+	_T = new Grid(_geom, compute_offset);
+	_tmp = new Grid(_geom, compute_offset);
 	_p->Initialize(0);
 	_T->Initialize(0);
-
-	//create solver (used script omega, not param omega)
-	_solver = new SOR(_geom, _param->Omega());
-
-
 }
 
 Compute::~Compute(){
@@ -76,12 +69,11 @@ Compute::~Compute(){
 	delete _rhs;
 	delete _tmp;
 	delete _solver;
+	delete _f;
+	delete _f_new;
 }
 
 void Compute::TimeStep(bool printInfo){
-
-
-	// Compute like in script page 23
 	//compute dt
 	real_t dt = _param->Dt();
     if(dt == 0){
@@ -93,56 +85,107 @@ void Compute::TimeStep(bool printInfo){
 	if(printInfo) {
 		printf("dt: %f \n", dt);
 	}
-
-	_max_dt = std::min<real_t>(_max_dt, dt);
-
-	/*BoundaryIterator it(_geom);
-	it.SetBoundary(0);
-	for (it.First();it.Valid();it.Next()){
-		_T->Cell(it) = 1.0;
-	}*/
-	// Iterator it2(_geom);
-	// for (it2.First();it2.Valid();it2.Next()){
-	// 	std::cout << "Temperature in cell " << it2.Value() << ": "
-	// 	<< _T->Cell(it2) << std::endl;
-	// }
-	// exit(0);
-	// compute FG and update bound.
-
-
-	// compute temperature and update bound
-	TempEqu(dt);
-	_geom->Update_T(_T, _param->T_h(), _param->T_c());
-
-	// compute FG and update bound.
-	MomentumEqu(dt);
-	ModMomentumEqu(dt);
-	_geom->Update_U(_F);
-	_geom->Update_V(_G);
-
-	// compute rhs and update bound.
-	RHS(dt);
-	_geom->Update_P(_rhs);
-
-	// Solver, relative eps had bad performance
-	index_t index = 0;
-	real_t res = 1;
-	while(index < _param->IterMax() && res > _epslimit) {
-		index++;
-		res = _solver->Cycle(_p, _rhs);
-		_geom->Update_P(_p);
+	/////////////////////////////////////////////////////////////////////////
+	////////////// LATTICE BOLTZMANN IMPLEMENTATION (FIRST TRY) /////////////
+	/////////////////////////////////////////////////////////////////////////
+	InteriorIterator it(_geom);
+	for(it.First();it.Valid();it.Next()){
+		_f_new->Cell(it.Right(),1) = _f->Cell(it,1);
+		_f_new->Cell(it.Top(),2) = _f->Cell(it,2);
+		_f_new->Cell(it.Left(),3) = _f->Cell(it,3);
+		_f_new->Cell(it.Down(),4) = _f->Cell(it,4);
+		_f_new->Cell(it.Right().Top(),5) = _f->Cell(it,5);
+		_f_new->Cell(it.Left().Top(),6) = _f->Cell(it,6);
+		_f_new->Cell(it.Left().Down(),7) = _f->Cell(it,7);
+		_f_new->Cell(it.Right().Down(),8) = _f->Cell(it,8);
+		_f_new->Cell(it,0) = _f->Cell(it,0);
 	}
-	if(printInfo) {
-		printf("iterations: %d / %d \n", index, _param->IterMax());
-	printf("pmax: %f\n", _p->Max());
+	BoundaryIterator itBound(_geom);
+	itBound.SetBoundary(0);
+	for(itBound.First();itBound.Valid();itBound.Next()){
+		_f->Cell(itBound,0) = _f_new->Cell(itBound,0);
+		_f->Cell(itBound,1) = _f_new->Cell(itBound,3);
+		_f->Cell(itBound,2) = _f_new->Cell(itBound,4);
+		_f->Cell(itBound,3) = _f_new->Cell(itBound,1);
+		_f->Cell(itBound,4) = _f_new->Cell(itBound,2);
+		_f->Cell(itBound,5) = _f_new->Cell(itBound,7);
+		_f->Cell(itBound,6) = _f_new->Cell(itBound,8);
+		_f->Cell(itBound,7) = _f_new->Cell(itBound,5);
+		_f->Cell(itBound,8) = _f_new->Cell(itBound,6);
 	}
-	_iter_count += index;
+	itBound.SetBoundary(1);
+	for(itBound.First();itBound.Valid();itBound.Next()){
+		_f->Cell(itBound,0) = _f_new->Cell(itBound,0);
+		_f->Cell(itBound,1) = _f_new->Cell(itBound,3);
+		_f->Cell(itBound,2) = _f_new->Cell(itBound,4);
+		_f->Cell(itBound,3) = _f_new->Cell(itBound,1);
+		_f->Cell(itBound,4) = _f_new->Cell(itBound,2);
+		_f->Cell(itBound,5) = _f_new->Cell(itBound,7);
+		_f->Cell(itBound,6) = _f_new->Cell(itBound,8);
+		_f->Cell(itBound,7) = _f_new->Cell(itBound,5);
+		_f->Cell(itBound,8) = _f_new->Cell(itBound,6);
+	}
+	itBound.SetBoundary(3);
+	for(itBound.First();itBound.Valid();itBound.Next()){
+		_f->Cell(itBound,0) = _f_new->Cell(itBound,0);
+		_f->Cell(itBound,1) = _f_new->Cell(itBound,3);
+		_f->Cell(itBound,2) = _f_new->Cell(itBound,4);
+		_f->Cell(itBound,3) = _f_new->Cell(itBound,1);
+		_f->Cell(itBound,4) = _f_new->Cell(itBound,2);
+		_f->Cell(itBound,5) = _f_new->Cell(itBound,7);
+		_f->Cell(itBound,6) = _f_new->Cell(itBound,8);
+		_f->Cell(itBound,7) = _f_new->Cell(itBound,5);
+		_f->Cell(itBound,8) = _f_new->Cell(itBound,6);
+	}
+	itBound.SetBoundary(2);
+	for(itBound.First();itBound.Valid();itBound.Next()){
+		_f->Cell(itBound,7) -= _geom->GetInflowVelo()[0];
+		_f->Cell(itBound,8) += _geom->GetInflowVelo()[0];
+	}
+	InteriorIterator it2(_geom);
+	real_t r;
+	real_t fe[9];
+	real_t vis = 10;
+	real_t omega = 1.0/(0.5 + 3.0 * vis);
+	real_t eomega = 1.0-omega;
+	real_t tau = 0.01;
+	real_t u2 = 0;
+	real_t uTot = 0.0;
+	real_t uTot2 = 0.0;
+	real_t e[18] = {0.0,0.0,1.0,0.0,0.0,1.0,
+						 -1.0,0.0,0.0,-1.0,1.0,1.0,
+						 -1.0,1.0,-1.0,-1.0,1.0,-1.0};
+	for(it2.First();it2.Valid();it2.Next()){
+		r = 0;
+		_u->Cell(it2) = _f_new->Cell(it2,1) - _f_new->Cell(it2,3) +
+						_f_new->Cell(it2,5) - _f_new->Cell(it2,6) +
+						_f_new->Cell(it2,7) - _f_new->Cell(it2,8);
+		_v->Cell(it2) = _f_new->Cell(it2,2) + _f_new->Cell(it2,4) +
+						_f_new->Cell(it2,5) + _f_new->Cell(it2,6) +
+						_f_new->Cell(it2,7) + _f_new->Cell(it2,8);
+		for (index_t i=0;i<9;i++)
+			r += _f_new->Cell(it2,i);
+		_u->Cell(it2) /= r;
+		printf ("%f and %f\n",_u->Cell(it2),r);
 
-	//compute uv and update bound.
-	NewVelocities(dt);
-	_geom->Update_U(_u);
-	_geom->Update_V(_v);
+		if(abs(_t)>0.115){exit(1);}
+		_v->Cell(it2) /= r;
+		_p->Cell(it2) = r;
 
+		for (int iCount=0;iCount<18;iCount+=2){
+			real_t uTot = e[iCount]*_u->Cell(it2)+e[iCount+1]*_v->Cell(it2);
+			real_t uTot2 = uTot*uTot;
+			fe[iCount/2] = (1.0 + 3*uTot + 4.5*uTot2
+				- 1.5*(_u->Cell(it2)*_u->Cell(it2) + _v->Cell(it2)*_v->Cell(it2)));
+		}
+		for (int iCount=0;iCount<9;iCount++){
+			_f->Cell(it2,iCount) = eomega*_f_new->Cell(it2,iCount)
+							+ omega*fe[iCount];
+		}
+	}
+	/////////////////////////////////////////////////////////////////////////
+	////////////// END LATTICE BOLTZMANN IMPLEMENTATION /////////////////////
+	/////////////////////////////////////////////////////////////////////////
 	_t += dt;
 
 	if(printInfo)
