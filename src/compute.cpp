@@ -12,6 +12,7 @@
 #include <cmath>
 #include <ctime>
 #include <algorithm>
+#include <unistd.h>
 using namespace std;
 
 Compute::Compute(const Geometry *geom, const Parameter *param){
@@ -46,11 +47,16 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 
 	_u = new Grid(_geom, compute_offset);
 	_u->Initialize(0);
-	_geom->Update_U(_u);
+	BoundaryIterator itBound(_geom);
+	itBound.SetBoundary(2);
+	for(itBound.First();itBound.Valid();itBound.Next()){
+		// _f_new->Cell(itBound.Down(),8) += _geom->GetInflowVelo()[0];
+		// _f_new->Cell(itBound.Down(),7) -= _geom->GetInflowVelo()[0];
+		_u->Cell(itBound) = _geom->GetInflowVelo()[0];
+	}
 
 	_v = new Grid(_geom, compute_offset);
 	_v->Initialize(0);
-	_geom->Update_V(_v);
 
 	_p = new Grid(_geom, compute_offset);
 	_T = new Grid(_geom, compute_offset);
@@ -88,6 +94,61 @@ void Compute::TimeStep(bool printInfo){
 	/////////////////////////////////////////////////////////////////////////
 	////////////// LATTICE BOLTZMANN IMPLEMENTATION (FIRST TRY) /////////////
 	/////////////////////////////////////////////////////////////////////////
+	/// COLLISION
+
+	InteriorIterator it2(_geom);
+	real_t r=0;
+	real_t fe[9];
+	real_t vis = 0.01;
+	real_t omega = 1.0/(0.5 + 3.0 * vis);
+	real_t eomega = 1.0-omega;
+	real_t tau = 0.0001;
+	real_t u2 = 0;
+	real_t uTot = 0.0;
+	real_t uTot2 = 0.0;
+	real_t e[18] = {0.0,0.0,  1.0,0.0,  0.0,1.0,
+		 		   -1.0,0.0,  0.0,-1.0, 1.0,1.0,
+	   			   -1.0,1.0, -1.0,-1.0, 1.0,-1.0};
+	real_t ti[9] = {4.0/9.0,  1.0/9.0,  1.0/9.0,   1.0/9.0,   1.0/9.0,
+							  1.0/36.0, 1.0/36.0,  1.0/36.0,  1.0/36.0};
+	for(it2.First();it2.Valid();it2.Next()){
+		r = 0;
+		_u->Cell(it2) = _f_new->Cell(it2,1)*e[2] + _f_new->Cell(it2,3)*e[6] +
+						_f_new->Cell(it2,5)*e[10] + _f_new->Cell(it2,6)*e[12]
+						+ _f_new->Cell(it2,7)*e[14] + _f_new->Cell(it2,8)*e[16];
+		_v->Cell(it2) = _f_new->Cell(it2,2)*e[5] + _f_new->Cell(it2,4)*e[9] +
+						_f_new->Cell(it2,5)*e[11] + _f_new->Cell(it2,6)*e[13]
+						+ _f_new->Cell(it2,7)*e[15] + _f_new->Cell(it2,8)*e[17];
+		for (index_t i=0;i<9;i++)
+			r += _f_new->Cell(it2,i);
+		_u->Cell(it2) /= r;
+		if(abs(_t)>1.115){exit(1);}
+		_v->Cell(it2) /= r;
+		_p->Cell(it2) = r;
+
+		// e[18] = {0.0,0.0,  1.0,0.0,  0.0,1.0,
+		// 		   -1.0,0.0,  0.0,-1.0, 1.0,1.0,
+		// 		   -1.0,1.0, -1.0,-1.0, 1.0,-1.0};
+		for (int iCount=0;iCount<18;iCount+=2){
+			real_t uTot = e[iCount]*_u->Cell(it2)+e[iCount+1]*_v->Cell(it2);
+			real_t uTot2 = uTot*uTot;
+			fe[iCount/2] = ti[iCount/2]*r*(1.0 + 3*uTot + 4.5*uTot2
+				- 1.5*(_u->Cell(it2)*_u->Cell(it2) + _v->Cell(it2)*_v->Cell(it2)));
+
+		}
+		printf ("F_0^eq: %f, Density: %f\n",fe[1],r);
+		for (int iCount=0;iCount<9;iCount++){
+			_f->Cell(it2,iCount) = omega*dt*fe[iCount] + eomega*dt*_f_new->Cell(it2,iCount);
+		}
+	}
+
+	/// STREAMING
+	BoundaryIterator itBound(_geom);
+	// itBound.SetBoundary(2);
+	// for(itBound.First();itBound.Valid();itBound.Next()){
+	// 	_f_new->Cell(itBound,1) += _geom->GetInflowVelo()[0];
+	// 	// _f->Cell(itBound.Down(),8) += _geom->GetInflowVelo()[0];
+	// }
 	InteriorIterator it(_geom);
 	for(it.First();it.Valid();it.Next()){
 		_f_new->Cell(it.Right(),1) = _f->Cell(it,1);
@@ -100,89 +161,34 @@ void Compute::TimeStep(bool printInfo){
 		_f_new->Cell(it.Right().Down(),8) = _f->Cell(it,8);
 		_f_new->Cell(it,0) = _f->Cell(it,0);
 	}
-	BoundaryIterator itBound(_geom);
+	// BoundaryIterator itBound(_geom);
 	itBound.SetBoundary(0);
 	for(itBound.First();itBound.Valid();itBound.Next()){
-		_f->Cell(itBound,0) = _f_new->Cell(itBound,0);
-		_f->Cell(itBound,1) = _f_new->Cell(itBound,3);
-		_f->Cell(itBound,2) = _f_new->Cell(itBound,4);
-		_f->Cell(itBound,3) = _f_new->Cell(itBound,1);
-		_f->Cell(itBound,4) = _f_new->Cell(itBound,2);
-		_f->Cell(itBound,5) = _f_new->Cell(itBound,7);
-		_f->Cell(itBound,6) = _f_new->Cell(itBound,8);
-		_f->Cell(itBound,7) = _f_new->Cell(itBound,5);
-		_f->Cell(itBound,8) = _f_new->Cell(itBound,6);
+		_f_new->Cell(itBound,2) = _f_new->Cell(itBound,4);
+		_f_new->Cell(itBound,5) = _f_new->Cell(itBound,7);
+		_f_new->Cell(itBound,6) = _f_new->Cell(itBound,8);
 	}
 	itBound.SetBoundary(1);
 	for(itBound.First();itBound.Valid();itBound.Next()){
-		_f->Cell(itBound,0) = _f_new->Cell(itBound,0);
-		_f->Cell(itBound,1) = _f_new->Cell(itBound,3);
-		_f->Cell(itBound,2) = _f_new->Cell(itBound,4);
-		_f->Cell(itBound,3) = _f_new->Cell(itBound,1);
-		_f->Cell(itBound,4) = _f_new->Cell(itBound,2);
-		_f->Cell(itBound,5) = _f_new->Cell(itBound,7);
-		_f->Cell(itBound,6) = _f_new->Cell(itBound,8);
-		_f->Cell(itBound,7) = _f_new->Cell(itBound,5);
-		_f->Cell(itBound,8) = _f_new->Cell(itBound,6);
+		_f_new->Cell(itBound,1) = _f_new->Cell(itBound,3);
+		_f_new->Cell(itBound,5) = _f_new->Cell(itBound,7);
+		_f_new->Cell(itBound,8) = _f_new->Cell(itBound,6);
 	}
 	itBound.SetBoundary(3);
 	for(itBound.First();itBound.Valid();itBound.Next()){
-		_f->Cell(itBound,0) = _f_new->Cell(itBound,0);
-		_f->Cell(itBound,1) = _f_new->Cell(itBound,3);
-		_f->Cell(itBound,2) = _f_new->Cell(itBound,4);
-		_f->Cell(itBound,3) = _f_new->Cell(itBound,1);
-		_f->Cell(itBound,4) = _f_new->Cell(itBound,2);
-		_f->Cell(itBound,5) = _f_new->Cell(itBound,7);
-		_f->Cell(itBound,6) = _f_new->Cell(itBound,8);
-		_f->Cell(itBound,7) = _f_new->Cell(itBound,5);
-		_f->Cell(itBound,8) = _f_new->Cell(itBound,6);
+		_f_new->Cell(itBound,3) = _f_new->Cell(itBound,1);
+		_f_new->Cell(itBound,6) = _f_new->Cell(itBound,8);
+		_f_new->Cell(itBound,7) = _f_new->Cell(itBound,5);
 	}
-	itBound.SetBoundary(2);
-	for(itBound.First();itBound.Valid();itBound.Next()){
-		_f->Cell(itBound,7) -= _geom->GetInflowVelo()[0];
-		_f->Cell(itBound,8) += _geom->GetInflowVelo()[0];
-	}
-	InteriorIterator it2(_geom);
-	real_t r;
-	real_t fe[9];
-	real_t vis = 10;
-	real_t omega = 1.0/(0.5 + 3.0 * vis);
-	real_t eomega = 1.0-omega;
-	real_t tau = 0.01;
-	real_t u2 = 0;
-	real_t uTot = 0.0;
-	real_t uTot2 = 0.0;
-	real_t e[18] = {0.0,0.0,1.0,0.0,0.0,1.0,
-						 -1.0,0.0,0.0,-1.0,1.0,1.0,
-						 -1.0,1.0,-1.0,-1.0,1.0,-1.0};
-	for(it2.First();it2.Valid();it2.Next()){
-		r = 0;
-		_u->Cell(it2) = _f_new->Cell(it2,1) - _f_new->Cell(it2,3) +
-						_f_new->Cell(it2,5) - _f_new->Cell(it2,6) +
-						_f_new->Cell(it2,7) - _f_new->Cell(it2,8);
-		_v->Cell(it2) = _f_new->Cell(it2,2) + _f_new->Cell(it2,4) +
-						_f_new->Cell(it2,5) + _f_new->Cell(it2,6) +
-						_f_new->Cell(it2,7) + _f_new->Cell(it2,8);
-		for (index_t i=0;i<9;i++)
-			r += _f_new->Cell(it2,i);
-		_u->Cell(it2) /= r;
-		printf ("%f and %f\n",_u->Cell(it2),r);
+	// itBound.SetBoundary(2);
+	// for(itBound.First();itBound.Valid();itBound.Next()){
+	// 	// _f_new->Cell(itBound.Down(),8) += _geom->GetInflowVelo()[0];
+	// 	// _f_new->Cell(itBound.Down(),7) -= _geom->GetInflowVelo()[0];
+	// 	_u->Cell(itBound.Down()) = _geom->GetInflowVelo()[0];
+	// }
 
-		if(abs(_t)>0.115){exit(1);}
-		_v->Cell(it2) /= r;
-		_p->Cell(it2) = r;
 
-		for (int iCount=0;iCount<18;iCount+=2){
-			real_t uTot = e[iCount]*_u->Cell(it2)+e[iCount+1]*_v->Cell(it2);
-			real_t uTot2 = uTot*uTot;
-			fe[iCount/2] = (1.0 + 3*uTot + 4.5*uTot2
-				- 1.5*(_u->Cell(it2)*_u->Cell(it2) + _v->Cell(it2)*_v->Cell(it2)));
-		}
-		for (int iCount=0;iCount<9;iCount++){
-			_f->Cell(it2,iCount) = eomega*_f_new->Cell(it2,iCount)
-							+ omega*fe[iCount];
-		}
-	}
+
 	/////////////////////////////////////////////////////////////////////////
 	////////////// END LATTICE BOLTZMANN IMPLEMENTATION /////////////////////
 	/////////////////////////////////////////////////////////////////////////

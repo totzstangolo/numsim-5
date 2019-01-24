@@ -113,13 +113,16 @@ public:
 
 
   /// Updates the velocity field u
-  void Update_U(Grid *u) const;
+  void Update_Fluid(Grid *u) const;
   /// Updates the velocity field v
   void Update_V(Grid *v) const;
   /// Updates the pressure field p
   void Update_P(Grid *p) const;
   /// Updates the pressure field t
   void Update_T(Grid *t, real_t hot, real_t cold) const;
+
+  void Update_Distr(Distri *f, const real_t &value,
+                                       const Iterator &it) const;
 
   multi_real_t GetInflowVelo() const{
       return _velocity;
