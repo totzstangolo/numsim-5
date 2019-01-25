@@ -42,18 +42,13 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 
 	_f = new Distri(_geom,compute_offset);
 	_f_new = new Distri(_geom,compute_offset);
-	_f->Initialize(1.0);
-	_f_new->Initialize(1.0);
+	_f->Initialize(0.0);
+	_f_new->Initialize(0.0);
+	_f_eq = new Distri(_geom,compute_offset);
+	_f_eq->Initialize(0.0);
 
 	_u = new Grid(_geom, compute_offset);
 	_u->Initialize(0);
-	BoundaryIterator itBound(_geom);
-	itBound.SetBoundary(2);
-	for(itBound.First();itBound.Valid();itBound.Next()){
-		// _f_new->Cell(itBound.Down(),8) += _geom->GetInflowVelo()[0];
-		// _f_new->Cell(itBound.Down(),7) -= _geom->GetInflowVelo()[0];
-		_u->Cell(itBound) = _geom->GetInflowVelo()[0];
-	}
 
 	_v = new Grid(_geom, compute_offset);
 	_v->Initialize(0);
@@ -67,14 +62,12 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 
 Compute::~Compute(){
 	delete _u;
-	delete _F;
 	delete _v;
-	delete _G;
 	delete _p;
-	delete _T;
-	delete _rhs;
-	delete _tmp;
-	delete _solver;
+	// delete _T;
+	// delete _rhs;
+	// delete _tmp;
+	// delete _solver;
 	delete _f;
 	delete _f_new;
 }
@@ -92,103 +85,86 @@ void Compute::TimeStep(bool printInfo){
 		printf("dt: %f \n", dt);
 	}
 	/////////////////////////////////////////////////////////////////////////
-	////////////// LATTICE BOLTZMANN IMPLEMENTATION (FIRST TRY) /////////////
+	////////////// LATTICE BOLTZMANN IMPLEMENTATION (SECOND TRY) /////////////
 	/////////////////////////////////////////////////////////////////////////
-	/// COLLISION
-
-	InteriorIterator it2(_geom);
-	real_t r=0;
-	real_t fe[9];
-	real_t vis = 0.01;
-	real_t omega = 1.0/(0.5 + 3.0 * vis);
-	real_t eomega = 1.0-omega;
-	real_t tau = 0.0001;
-	real_t u2 = 0;
-	real_t uTot = 0.0;
-	real_t uTot2 = 0.0;
-	real_t e[18] = {0.0,0.0,  1.0,0.0,  0.0,1.0,
-		 		   -1.0,0.0,  0.0,-1.0, 1.0,1.0,
-	   			   -1.0,1.0, -1.0,-1.0, 1.0,-1.0};
-	real_t ti[9] = {4.0/9.0,  1.0/9.0,  1.0/9.0,   1.0/9.0,   1.0/9.0,
-							  1.0/36.0, 1.0/36.0,  1.0/36.0,  1.0/36.0};
-	for(it2.First();it2.Valid();it2.Next()){
-		r = 0;
-		_u->Cell(it2) = _f_new->Cell(it2,1)*e[2] + _f_new->Cell(it2,3)*e[6] +
-						_f_new->Cell(it2,5)*e[10] + _f_new->Cell(it2,6)*e[12]
-						+ _f_new->Cell(it2,7)*e[14] + _f_new->Cell(it2,8)*e[16];
-		_v->Cell(it2) = _f_new->Cell(it2,2)*e[5] + _f_new->Cell(it2,4)*e[9] +
-						_f_new->Cell(it2,5)*e[11] + _f_new->Cell(it2,6)*e[13]
-						+ _f_new->Cell(it2,7)*e[15] + _f_new->Cell(it2,8)*e[17];
-		for (index_t i=0;i<9;i++)
-			r += _f_new->Cell(it2,i);
-		_u->Cell(it2) /= r;
-		if(abs(_t)>1.115){exit(1);}
-		_v->Cell(it2) /= r;
-		_p->Cell(it2) = r;
-
-		// e[18] = {0.0,0.0,  1.0,0.0,  0.0,1.0,
-		// 		   -1.0,0.0,  0.0,-1.0, 1.0,1.0,
-		// 		   -1.0,1.0, -1.0,-1.0, 1.0,-1.0};
-		for (int iCount=0;iCount<18;iCount+=2){
-			real_t uTot = e[iCount]*_u->Cell(it2)+e[iCount+1]*_v->Cell(it2);
-			real_t uTot2 = uTot*uTot;
-			fe[iCount/2] = ti[iCount/2]*r*(1.0 + 3*uTot + 4.5*uTot2
-				- 1.5*(_u->Cell(it2)*_u->Cell(it2) + _v->Cell(it2)*_v->Cell(it2)));
-
-		}
-		printf ("F_0^eq: %f, Density: %f\n",fe[1],r);
-		for (int iCount=0;iCount<9;iCount++){
-			_f->Cell(it2,iCount) = omega*dt*fe[iCount] + eomega*dt*_f_new->Cell(it2,iCount);
-		}
-	}
-
-	/// STREAMING
-	BoundaryIterator itBound(_geom);
-	// itBound.SetBoundary(2);
-	// for(itBound.First();itBound.Valid();itBound.Next()){
-	// 	_f_new->Cell(itBound,1) += _geom->GetInflowVelo()[0];
-	// 	// _f->Cell(itBound.Down(),8) += _geom->GetInflowVelo()[0];
-	// }
-	InteriorIterator it(_geom);
+	
+	// kinematic viscosity
+    real_t nu    = _geom->GetInflowVelo()[0] *_geom->Length()[0] / _param->Re();
+	real_t omega = 1.0 / (3.0*nu+1.0/2.0); //relaxation parameter
+	Iterator it(_geom);
 	for(it.First();it.Valid();it.Next()){
-		_f_new->Cell(it.Right(),1) = _f->Cell(it,1);
-		_f_new->Cell(it.Top(),2) = _f->Cell(it,2);
-		_f_new->Cell(it.Left(),3) = _f->Cell(it,3);
-		_f_new->Cell(it.Down(),4) = _f->Cell(it,4);
-		_f_new->Cell(it.Right().Top(),5) = _f->Cell(it,5);
-		_f_new->Cell(it.Left().Top(),6) = _f->Cell(it,6);
-		_f_new->Cell(it.Left().Down(),7) = _f->Cell(it,7);
-		_f_new->Cell(it.Right().Down(),8) = _f->Cell(it,8);
-		_f_new->Cell(it,0) = _f->Cell(it,0);
+		_f->rho(it) = _f->sum_vel(it);
+		_u->Cell(it) = _f->sum_c_vel_x(it)/_f->rho(it);
+		_v->Cell(it) = _f->sum_c_vel_y(it)/_f->rho(it);
 	}
-	// BoundaryIterator itBound(_geom);
-	itBound.SetBoundary(0);
-	for(itBound.First();itBound.Valid();itBound.Next()){
-		_f_new->Cell(itBound,2) = _f_new->Cell(itBound,4);
-		_f_new->Cell(itBound,5) = _f_new->Cell(itBound,7);
-		_f_new->Cell(itBound,6) = _f_new->Cell(itBound,8);
+	BoundaryIterator lid(_geom);
+	lid.SetBoundary(2);
+	for(lid.First();lid.Valid();lid.Next()){
+		/// Zhu, He (Macroscopic)
+		_u->Cell(lid) = _geom->GetInflowVelo()[0];
+		_v->Cell(lid) = _geom->GetInflowVelo()[1];
+		_f->rho(lid) = 1.0/(1.0+_v->Cell(lid)) *
+			(  _f->Cell(lid,0)+_f->Cell(lid,1)+_f->Cell(lid,3)
+			 + 2*(_f->Cell(lid,2)+_f->Cell(lid,5)+_f->Cell(lid,6)));
+		/// (Microscopic)
+		_f->Cell(lid,4) = _f->Cell(lid,2) - 2/3*_f->rho(lid)*_v->Cell(lid);
+		_f->Cell(lid,8) = _f->Cell(lid,6) + 1/2*(_f->Cell(lid,3)-_f->Cell(lid,1))
+			+ 1/2*_f->rho(lid)*_u->Cell(lid) - 1/6*_f->rho(lid)*_v->Cell(lid);
+		_f->Cell(lid,7) = _f->Cell(lid,5) + 1/2*(_f->Cell(lid,1)-_f->Cell(lid,3))
+			- 1/2*_f->rho(lid)*_u->Cell(lid) - 1/6*_f->rho(lid)*_v->Cell(lid);
 	}
-	itBound.SetBoundary(1);
-	for(itBound.First();itBound.Valid();itBound.Next()){
-		_f_new->Cell(itBound,1) = _f_new->Cell(itBound,3);
-		_f_new->Cell(itBound,5) = _f_new->Cell(itBound,7);
-		_f_new->Cell(itBound,8) = _f_new->Cell(itBound,6);
-	}
-	itBound.SetBoundary(3);
-	for(itBound.First();itBound.Valid();itBound.Next()){
-		_f_new->Cell(itBound,3) = _f_new->Cell(itBound,1);
-		_f_new->Cell(itBound,6) = _f_new->Cell(itBound,8);
-		_f_new->Cell(itBound,7) = _f_new->Cell(itBound,5);
-	}
-	// itBound.SetBoundary(2);
-	// for(itBound.First();itBound.Valid();itBound.Next()){
-	// 	// _f_new->Cell(itBound.Down(),8) += _geom->GetInflowVelo()[0];
-	// 	// _f_new->Cell(itBound.Down(),7) -= _geom->GetInflowVelo()[0];
-	// 	_u->Cell(itBound.Down()) = _geom->GetInflowVelo()[0];
-	// }
 
+	/// Collision
+	real_t cu,u2,v2 = 0.0;
+	for(it.First();it.Valid();it.Next()){
+		u2 = _u->Cell(it)*_u->Cell(it);
+		v2 = _v->Cell(it)*_v->Cell(it);
+		for(int iCount=0;iCount<9;iCount++){
+			cu = 3*(_f->ex(iCount)*_u->Cell(it)+_f->ey(iCount)*_v->Cell(it));
+        	_f_eq->Cell(it,iCount) = _f->rho(it)*_f->t(iCount)
+            * ( 1 + cu + 1/2*(cu*cu) - 3/2*(u2+v2));
+        	_f_new->Cell(it,iCount) = _f->Cell(it,iCount)
+				- omega * (_f->Cell(it,iCount) - _f_eq->Cell(it,iCount));
+		}
+	}
 
+	// bounce back at walls
+	real_t opp[9] = { 0, 3, 4, 1,  2, 7, 8,  5,  6};
+	BoundaryIterator walls(_geom);
+	walls.SetBoundary(0);
+	for(walls.First();walls.Valid();walls.Next()){
+		for (int iCount=0;iCount < 9;iCount++){
+	        _f_new->Cell(walls,iCount) = _f->Cell(walls,opp[iCount]);
+		}
+	}
+	walls.SetBoundary(1);
+	for(walls.First();walls.Valid();walls.Next()){
+		for (int iCount=0;iCount < 9;iCount++){
+	        _f_new->Cell(walls,iCount) = _f->Cell(walls,opp[iCount]);
+		}
+	}
+	walls.SetBoundary(3);
+	for(walls.First();walls.Valid();walls.Next()){
+		for (int iCount=0;iCount < 9;iCount++){
+	        _f_new->Cell(walls,iCount) = _f->Cell(walls,opp[iCount]);
+		}
+	}
 
+	// STREAMING
+	InteriorIterator it2(_geom);
+	for(it2.First();it2.Valid();it2.Next()){
+		// for(int jCount=0;jCount<9;jCount++){
+		// _f->Cell(it2,0) = _f_new->Cell(it2,0);
+		_f->Cell(it2,1) = _f_new->Cell(it2.Right(),1);
+		_f->Cell(it2,2) = _f_new->Cell(it2.Top(),2);
+		_f->Cell(it2,3) = _f_new->Cell(it2.Left(),3);
+		_f->Cell(it2,4) = _f_new->Cell(it2.Down(),4);
+		_f->Cell(it2,5) = _f_new->Cell(it2.Top().Right(),5);
+		_f->Cell(it2,6) = _f_new->Cell(it2.Top().Left(),6);
+		_f->Cell(it2,7) = _f_new->Cell(it2.Down().Left(),7);
+		_f->Cell(it2,8) = _f_new->Cell(it2.Down().Right(),8);
+		// }
+	}
 	/////////////////////////////////////////////////////////////////////////
 	////////////// END LATTICE BOLTZMANN IMPLEMENTATION /////////////////////
 	/////////////////////////////////////////////////////////////////////////

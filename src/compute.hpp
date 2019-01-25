@@ -87,6 +87,7 @@ private:
 
   Distri *_f;
   Distri *_f_new;
+  Distri *_f_eq;
 
   Solver *_solver;
 

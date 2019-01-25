@@ -41,7 +41,14 @@ public:
   real_t &Cell(const Iterator &it, index_t vel);
   /// Read access to the grid cell at position [it]
   const real_t &Cell(const Iterator &it, index_t vel) const;
-  // const real_t &Cell(const Iterator &it, index_t vel) const;
+  const real_t &t(index_t vel) const;
+  const real_t &ex(index_t vel) const;
+  const real_t &ey(index_t vel) const;
+  const real_t &rho(const Iterator &it) const;
+  real_t &rho(const Iterator &it);
+  real_t sum_vel(const Iterator &it);
+  real_t sum_c_vel_x(const Iterator &it);
+  real_t sum_c_vel_y(const Iterator &it);
 
 
 private:
@@ -54,6 +61,10 @@ private:
   real_t *_f7;
   real_t *_f8;
   real_t *_f0;
+  real_t *_ex;
+  real_t *_ey;
+  real_t *_t;
+  real_t *_rho;
   const Geometry *_geom;
 };
 //------------------------------------------------------------------------------
