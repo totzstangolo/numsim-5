@@ -87,18 +87,20 @@ void Compute::TimeStep(bool printInfo){
 	/////////////////////////////////////////////////////////////////////////
 	////////////// LATTICE BOLTZMANN IMPLEMENTATION (SECOND TRY) /////////////
 	/////////////////////////////////////////////////////////////////////////
-	
+
 	// kinematic viscosity
-    real_t nu    = _geom->GetInflowVelo()[0] *_geom->Length()[0] / _param->Re();
+    real_t nu    = _geom->GetInflowVelo()[0] *_geom->Size()[0] / _param->Re();
 	real_t omega = 1.0 / (3.0*nu+1.0/2.0); //relaxation parameter
 	Iterator it(_geom);
 	for(it.First();it.Valid();it.Next()){
 		_f->rho(it) = _f->sum_vel(it);
+		_p->Cell(it) = _f->rho(it);
 		_u->Cell(it) = _f->sum_c_vel_x(it)/_f->rho(it);
 		_v->Cell(it) = _f->sum_c_vel_y(it)/_f->rho(it);
 	}
 	BoundaryIterator lid(_geom);
 	lid.SetBoundary(2);
+
 	for(lid.First();lid.Valid();lid.Next()){
 		/// Zhu, He (Macroscopic)
 		_u->Cell(lid) = _geom->GetInflowVelo()[0];
@@ -153,8 +155,7 @@ void Compute::TimeStep(bool printInfo){
 	// STREAMING
 	InteriorIterator it2(_geom);
 	for(it2.First();it2.Valid();it2.Next()){
-		// for(int jCount=0;jCount<9;jCount++){
-		// _f->Cell(it2,0) = _f_new->Cell(it2,0);
+		_f->Cell(it2,0) = _f_new->Cell(it2,0);
 		_f->Cell(it2,1) = _f_new->Cell(it2.Right(),1);
 		_f->Cell(it2,2) = _f_new->Cell(it2.Top(),2);
 		_f->Cell(it2,3) = _f_new->Cell(it2.Left(),3);
@@ -163,7 +164,6 @@ void Compute::TimeStep(bool printInfo){
 		_f->Cell(it2,6) = _f_new->Cell(it2.Top().Left(),6);
 		_f->Cell(it2,7) = _f_new->Cell(it2.Down().Left(),7);
 		_f->Cell(it2,8) = _f_new->Cell(it2.Down().Right(),8);
-		// }
 	}
 	/////////////////////////////////////////////////////////////////////////
 	////////////// END LATTICE BOLTZMANN IMPLEMENTATION /////////////////////
