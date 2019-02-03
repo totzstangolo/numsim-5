@@ -150,12 +150,12 @@ VTK vtk(geom.Mesh(), geom.Length(), geom.TotalLength(), offset, comm.getRank(),
     vtk.SwitchToPointData();
     vtk.AddPointField("Velocity", comp.GetU(), comp.GetV());
     vtk.AddPointScalar("Pressure", comp.GetP());
-    vtk.AddPointScalar("Temperature", comp.GetT());
+    //vtk.AddPointScalar("Temperature", comp.GetT());
     vtk.Finish();
 #endif
 
     // Run a few steps
-    for (uint32_t i = 0; i < 9; ++i) {
+    for (uint32_t i = 0; i < 99; ++i) {
       comp.TimeStep(false);
     }
 

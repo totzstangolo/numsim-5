@@ -106,9 +106,9 @@ private:
   // container for interpolating whichever values
   Grid *_tmp;
 
-  Distri *_f;
-  Distri *_f_new;
-  Distri *_f_eq;
+  //Distri *_f;
+  //Distri *_f_new;
+  //Distri *_f_eq;
   Data *grid;
 
   Solver *_solver;

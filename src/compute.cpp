@@ -78,13 +78,14 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 	compute_offset[0] = -0.5 * h[0];
 	compute_offset[1] = -0.5 * h[0];
 
-	_f = new Distri(_geom,compute_offset);
+/*
+ * 	_f = new Distri(_geom,compute_offset);
 	_f_new = new Distri(_geom,compute_offset);
 	_f->Initialize(0.0);
 	_f_new->Initialize(0.0);
 	_f_eq = new Distri(_geom,compute_offset);
 	_f_eq->Initialize(0.0);
-
+*/
 	_u = new Grid(_geom, compute_offset);
 	_u->Initialize(0);
 
@@ -96,10 +97,10 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 	_tmp = new Grid(_geom, compute_offset);
 	_p->Initialize(0);
 	_T->Initialize(0);
+	// Gitterschraube
+	real_t n = (_geom->Size()[0]) * (_geom->Size()[1]);
 	grid = new Data((_geom->Size()[0] + 2) * (_geom->Size()[1] + 2));
 	Init();
-	cout << _geom->Size()[0] + 2 << endl;
-
 
 }
 
@@ -107,16 +108,16 @@ Compute::~Compute(){
 	delete _u;
 	delete _v;
 	delete _p;
-	// delete _T;
+	delete _T;
 	// delete _rhs;
 	// delete _tmp;
 	// delete _solver;
-	delete _f;
-	delete _f_new;
+	// delete _f;
+	// delete _f_new;
 }
 
 void Compute::Init(){
-	index_t n = (_geom->Size()[0] + 2) * (_geom->Size()[1] + 2);
+	index_t n = (_geom->Size()[0]) * (_geom->Size()[1]);
 	real_t tmp_w[9] = {4.0/9.0,  1.0/9.0,  1.0/9.0,  1.0/9.0, 1.0/9.0,
 		  	  1.0/36.0, 1.0/36.0, 1.0/36.0, 1.0/36.0};
 	real_t tmp_index_x[9] = {0, 1, -1, 0, 0, 1, -1, 1, -1};
@@ -148,8 +149,8 @@ void Compute::Init(){
 }
 
 void Compute::TimeStep(bool printInfo){
-	index_t n = (_geom->Size()[0] + 2) * (_geom->Size()[1] + 2);
-	index_t m = _geom->Size()[0] + 2;
+	index_t n = (_geom->Size()[0]) * (_geom->Size()[1]);
+	index_t m = _geom->Size()[0]; // + 2;
 	//compute dt
 
 
@@ -249,7 +250,7 @@ void Compute::TimeStep(bool printInfo){
 
 
 
-	// iterator
+	/*// iterator
 	Iterator it(_geom);
 	for(it.First();it.Valid();it.Next()){
 		_f->rho(it) = _f->sum_vel(it);
@@ -327,12 +328,12 @@ void Compute::TimeStep(bool printInfo){
 	/////////////////////////////////////////////////////////////////////////
 	////////////// END LATTICE BOLTZMANN IMPLEMENTATION /////////////////////
 	/////////////////////////////////////////////////////////////////////////
+	 *
+	 */
 
-	memcpy(&_u->Cell(0), &grid->u[0], sizeof(real_t) *n);
-	memcpy(&_v->Cell(0), &grid->v[0], sizeof(real_t) *n);
-	/*for(it.First();it.Valid();it.Next()){
-		_u->Cell(it) = grid->u[it];
-	}*/
+	memcpy(&_u->Cell(0), &grid->u[0], sizeof(real_t) * n);
+	memcpy(&_v->Cell(0), &grid->v[0], sizeof(real_t) * n);
+	memcpy(&_p->Cell(0), &grid->rho[0], sizeof(real_t) * n);
 
 	_t += dt;
 
