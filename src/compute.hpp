@@ -30,6 +30,8 @@ struct Data{
 	real_t* rho;
 	real_t* u;
 	real_t* v;
+	index_t* bound_stat;
+	real_t* bound_vel;
 
 	//constructor
 	Data(const index_t size);

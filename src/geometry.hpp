@@ -128,6 +128,17 @@ public:
       return _velocity;
   }
 
+  index_t* GetBoundStat() const{
+        return _bound_true;
+    }
+
+  real_t* GetBoundVel() const{
+      return _bound_vel;
+  }
+
+  real_t *_bound_vel = new real_t[8];
+  index_t *_bound_true = new index_t[4];
+
 private:
   const Communicator *_comm;
 

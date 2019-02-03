@@ -63,6 +63,8 @@ Geometry::~Geometry() {
 void Geometry::Load(const char *file) {
    FILE *handle = fopen(file, "r");
    double inval[2];
+   double inval_vel[8];
+   index_t inval_ind[4];
    char name[200000];
    while (!feof(handle)) {
      if (!fscanf(handle, "%s =", name))
@@ -82,9 +84,20 @@ void Geometry::Load(const char *file) {
        continue;
      }
      if (strcmp(name, "velocity") == 0) {
-       if (fscanf(handle, " %lf %lf\n", &inval[0], &inval[1])) {
-         _velocity[0] = inval[0];
-         _velocity[1] = inval[1];
+       if (fscanf(handle, " %lf %lf %lf %lf %lf %lf %lf %lf\n", &inval_vel[0], &inval_vel[1], &inval_vel[2], &inval_vel[3], &inval_vel[4], &inval_vel[5], &inval_vel[6], &inval_vel[7])) {
+         _velocity[0] = inval_vel[0];
+         _velocity[1] = inval_vel[1];
+         for (int i = 0; i < 8; ++i){
+        	 _bound_vel[i] = inval_vel[i];
+         }
+       }
+       continue;
+     }
+     if (strcmp(name, "boundaries") == 0) {
+       if (fscanf(handle, " %u %u %u %u\n", &inval_ind[0], &inval_ind[1], &inval_ind[2], &inval_ind[3])) {
+         for (int i = 0; i < 4; ++i){
+        	 _bound_true[i] = inval_ind[i];
+         }
        }
        continue;
      }

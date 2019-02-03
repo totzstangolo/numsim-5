@@ -26,6 +26,8 @@ Data::Data(const index_t size){
 	w = new real_t[9];
 	index_x = new real_t[9];
 	index_y = new real_t[9];
+	bound_stat = new index_t[4];
+	bound_vel = new real_t[8];
 	f = new real_t* [18];
 	for(int i = 0; i < 18; ++i){
 		f[i] = new real_t[size];
@@ -41,6 +43,8 @@ Data::~Data(){
 		delete[] w;
 		delete[] index_x;
 		delete[] index_y;
+		delete[] bound_stat;
+		delete[] bound_vel;
 		for(int i = 0; i < 18; ++i){
 				delete[] f[i];
 		}
@@ -99,7 +103,7 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 	_T->Initialize(0);
 	// Gitterschraube
 	real_t n = (_geom->Size()[0]) * (_geom->Size()[1]);
-	grid = new Data((_geom->Size()[0] + 2) * (_geom->Size()[1] + 2));
+	grid = new Data(n);
 	Init();
 
 }
@@ -118,10 +122,18 @@ Compute::~Compute(){
 
 void Compute::Init(){
 	index_t n = (_geom->Size()[0]) * (_geom->Size()[1]);
+	index_t m = _geom->Size()[0];
 	real_t tmp_w[9] = {4.0/9.0,  1.0/9.0,  1.0/9.0,  1.0/9.0, 1.0/9.0,
 		  	  1.0/36.0, 1.0/36.0, 1.0/36.0, 1.0/36.0};
 	real_t tmp_index_x[9] = {0, 1, -1, 0, 0, 1, -1, 1, -1};
 	real_t tmp_index_y[9] = {0, 0, 0, 1, -1, 1, -1, -1, 1};
+	for(index_t l = 0; l < 4; ++l){
+		grid->bound_stat[l] = _geom->GetBoundStat()[l];
+		grid->bound_vel[2*l] = _geom->GetBoundVel()[2* l]; //x-coord
+		grid->bound_vel[2*l +1] = _geom->GetBoundVel()[2* l +1]; //y-coord
+		cout << grid->bound_stat[l] << " " << grid->bound_vel[2*l] << " " << grid->bound_vel[2*l + 1] << endl;
+	}
+
 	for(index_t j = 0; j < 9; ++j){
 		grid->w[j] = tmp_w[j];
 		grid->index_x[j] = tmp_index_x[j];
@@ -139,12 +151,50 @@ void Compute::Init(){
 		 }
 
 	}
-	  for(index_t i = 0; i < _geom->Size()[0] + 1; ++i){
-		  grid->boundary[i] = 1;
-		  grid->boundary[i * (_geom->Size()[0] + 2)] = 1;
-		  grid->boundary[(i + 1) * (_geom->Size()[0] + 2) - 1] = 1;
-		  //grid->boundary[i + n -(_geom->Size()[0] + 2)] = 1;
-	  }
+	// init boundaries
+	for(int h = 1; h < m - 1; ++h){
+		for(int i = 1; i < m - 1; ++i){
+			int k = h * m + i;
+			  if(_geom->get_cellType(k) != CellType_t::typeFluid){
+				  grid->boundary[k] = 1;
+				  cout << k << " ";
+			  }
+		}
+	}
+
+	for(index_t i = 0; i < m - 1; ++i){
+		  grid->boundary[i] = 1; //south
+		  grid->boundary[i * m] = 1; //west
+		  grid->boundary[(i + 1) * m - 1] = 1; //east
+		  grid->boundary[i + n - m] = 1; //north
+	}
+	// east is in or outflow
+	if(grid->bound_stat[0] == 1){
+		for(index_t i = 0; i < m; ++i){
+			grid->boundary[(i + 1) * m - 1] = 0;
+		}
+	}
+
+	// west is in or outflow
+	if(grid->bound_stat[1] == 1){
+		for(index_t i = 0; i < m; ++i){
+			grid->boundary[i * m] = 0;
+		}
+	}
+	// north is in or outflow
+	if(grid->bound_stat[2] == 1){
+		for(index_t i = 0; i < m; ++i){
+			grid->boundary[n - m + i] = 0;
+		}
+	}
+
+	// south is in or outflow
+	if(grid->bound_stat[3] == 1){
+		for(index_t i = 0; i < m; ++i){
+			grid->boundary[i] = 0;
+		}
+	}
+
 
 }
 
@@ -169,48 +219,116 @@ void Compute::TimeStep(bool printInfo){
 	/////////////////////////////////////////////////////////////////////////
 
 	// kinematic viscosity
-    real_t nu    = _geom->GetInflowVelo()[0] *_geom->Size()[0] / _param->Re();
+	real_t vel_nu = 0.0;
+	real_t vel_nu_tmp = 0.0;
+	for(int i = 0; i<4; ++i){
+		vel_nu_tmp = sqrt(grid->bound_vel[2 *i] * grid->bound_vel[2 *i] + grid->bound_vel[2 *i + 1] * grid->bound_vel[2 *i +1]);
+		vel_nu = vel_nu < vel_nu_tmp ? vel_nu_tmp : vel_nu;
+	}
+	real_t nu    = vel_nu *_geom->Size()[0] / _param->Re();
 	real_t omega = 1.0 / (3.0*nu+1.0/2.0); //relaxation parameter
 
 	///collision kernel for GPU
 	// without iterator
 	real_t cu,u2,v2, eq = 0.0;
-	for(index_t i = 0; i < n; ++i){
-		grid->rho[i] = 0;
 
-		// computing rho, u and v
-		for(index_t j = 0; j < 9; ++j){
-			grid->rho[i] += grid->f[j][i];
+	for(index_t i = 0; i < n; ++i){
+		if(!grid->boundary[i]){
+			grid->rho[i] = 0;
+
+			// computing rho, u and v
+			for(index_t j = 0; j < 9; ++j){
+				grid->rho[i] += grid->f[j][i];
+			}
+			grid->u[i] = (grid->f[1][i] - grid->f[2][i] + grid->f[5][i] - grid->f[6][i] + grid->f[7][i] - grid->f[8][i]) / grid->rho[i];
+			grid->v[i] = (grid->f[3][i] - grid->f[4][i] + grid->f[5][i] - grid->f[6][i] - grid->f[7][i] + grid->f[8][i]) / grid->rho[i];
 		}
-		grid->u[i] = (grid->f[1][i] - grid->f[2][i] + grid->f[5][i] - grid->f[6][i] + grid->f[7][i] - grid->f[8][i]) / grid->rho[i];
-		grid->v[i] = (grid->f[3][i] - grid->f[4][i] + grid->f[5][i] - grid->f[6][i] - grid->f[7][i] + grid->f[8][i]) / grid->rho[i];
 	}
+
+	// inflow from east
+	if(grid->bound_stat[0]){
+		for(index_t i = m - 1; i <n; i += m){
+			/// rho
+			grid->u[i] = grid->bound_vel[0];
+			grid->v[i] = grid->bound_vel[1];
+			grid->rho[i] = 1.0/(1.0 +grid->bound_vel[0]) *
+				(  grid->f[0][i] +  grid->f[3][i] + grid->f[4][i]
+				 + 2.0 * (grid->f[1][i] + grid->f[5][i] + grid->f[7][i]));
+			/// (Microscopic)
+			grid->f[2][i] = grid->f[1][i] - 2/3 *  grid->rho[i] * grid->bound_vel[0];
+			grid->f[6][i] = grid->f[5][i] + 1/2*(grid->f[3][i] - grid->f[4][i])
+						- 1/2*grid->rho[i]*grid->bound_vel[1] - 1/6*grid->rho[i]*grid->bound_vel[0];
+			grid->f[8][i] = grid->f[7][i] + 1/2*(grid->f[4][i] - grid->f[3][i])
+						+ 1/2*grid->rho[i]*grid->bound_vel[1] - 1/6*grid->rho[i]*grid->bound_vel[0];
+		}
+	}
+
+	// inflow from west
+	if(grid->bound_stat[1]){
+		for(index_t i = 0; i <n; i += m){
+			/// rho
+			grid->u[i] = grid->bound_vel[2];
+			grid->v[i] = grid->bound_vel[3];
+			grid->rho[i] = 1.0/(1.0 +grid->bound_vel[2]) *
+				(  grid->f[0][i] +  grid->f[3][i] + grid->f[4][i]
+				 + 2.0 * (grid->f[2][i] + grid->f[6][i] + grid->f[8][i]));
+			/// (Microscopic)
+			grid->f[1][i] = grid->f[2][i] + 2/3 *  grid->rho[i] * grid->bound_vel[2];
+			grid->f[5][i] = grid->f[6][i] + 1/2*(grid->f[4][i] - grid->f[3][i])
+						- 1/2*grid->rho[i]*grid->bound_vel[3] + 1/6*grid->rho[i]*grid->bound_vel[2];
+			grid->f[7][i] = grid->f[8][i] + 1/2*(grid->f[3][i] - grid->f[4][i])
+						- 1/2*grid->rho[i]*grid->bound_vel[3] - 1/6*grid->rho[i]*grid->bound_vel[2];
+		}
+	}
+
 
 	// inflow from north
-	for(index_t i = n - m; i <n; ++i){
-		/// rho
-		grid->u[i] = _geom->GetInflowVelo()[0];
-		grid->v[i] = _geom->GetInflowVelo()[1];
-		grid->rho[i] = 1.0/(1.0 +_geom->GetInflowVelo()[1]) *
-			(  grid->f[0][i] +  grid->f[1][i] + grid->f[2][i]
-			 + 2.0 * (grid->f[3][i] + grid->f[5][i] + grid->f[8][i]));
-		/// (Microscopic)
-		grid->f[4][i] = grid->f[3][i] - 2/3 *  grid->rho[i] * _geom->GetInflowVelo()[1];
-		grid->f[6][i] = grid->f[5][i] + 1/2*(grid->f[1][i] - grid->f[2][i])
-					- 1/2*grid->rho[i]*_geom->GetInflowVelo()[0] - 1/6*grid->rho[i]*_geom->GetInflowVelo()[1];
-		grid->f[7][i] = grid->f[8][i] + 1/2*(grid->f[2][i] - grid->f[1][i])
-					+ 1/2*grid->rho[i]*_geom->GetInflowVelo()[0] - 1/6*grid->rho[i]*_geom->GetInflowVelo()[1];
+	if(grid->bound_stat[2]){
+		for(index_t i = n - m; i <n; ++i){
+			/// rho
+			grid->u[i] = grid->bound_vel[4];
+			grid->v[i] = grid->bound_vel[5];
+			grid->rho[i] = 1.0/(1.0 +grid->bound_vel[5]) *
+				(  grid->f[0][i] +  grid->f[1][i] + grid->f[2][i]
+				 + 2.0 * (grid->f[3][i] + grid->f[5][i] + grid->f[8][i]));
+			/// (Microscopic)
+			grid->f[4][i] = grid->f[3][i] - 2/3 *  grid->rho[i] * grid->bound_vel[5];
+			grid->f[6][i] = grid->f[5][i] + 1/2*(grid->f[1][i] - grid->f[2][i])
+						- 1/2*grid->rho[i]*grid->bound_vel[4] - 1/6*grid->rho[i]*grid->bound_vel[5];
+			grid->f[7][i] = grid->f[8][i] + 1/2*(grid->f[2][i] - grid->f[1][i])
+						+ 1/2*grid->rho[i]*grid->bound_vel[4] - 1/6*grid->rho[i]*grid->bound_vel[5];
+		}
 	}
+
+	// inflow from south
+		if(grid->bound_stat[3]){
+			for(index_t i = 0; i <m; ++i){
+				/// rho
+				grid->u[i] = grid->bound_vel[6];
+				grid->v[i] = grid->bound_vel[7];
+				grid->rho[i] = 1.0/(1.0 +grid->bound_vel[7]) *
+					(  grid->f[0][i] +  grid->f[1][i] + grid->f[2][i]
+					 + 2.0 * (grid->f[4][i] + grid->f[6][i] + grid->f[7][i]));
+				/// (Microscopic)
+				grid->f[3][i] = grid->f[4][i] + 2/3 *  grid->rho[i] * grid->bound_vel[7];
+				grid->f[5][i] = grid->f[6][i] + 1/2*(grid->f[2][i] - grid->f[1][i])
+							+ 1/2*grid->rho[i]*grid->bound_vel[6] + 1/6*grid->rho[i]*grid->bound_vel[7];
+				grid->f[8][i] = grid->f[7][i] + 1/2*(grid->f[1][i] - grid->f[2][i])
+							- 1/2*grid->rho[i]*grid->bound_vel[6] + 1/6*grid->rho[i]*grid->bound_vel[7];
+			}
+		}
 
 
 	for(index_t i = 0; i < n; ++i){
-		//collision
-		u2 = grid->u[i] * grid->u[i];
-		v2 = grid->v[i] * grid->v[i];
-		for(index_t j = 0; j < 9; ++j){
-			cu = 3.0 * (grid->index_x[j] * grid->u[i] + grid->index_y[j] * grid->v[i]);
-			eq = grid->rho[i] * grid->w[j] * (1 + cu + 0.5 * (cu * cu) - 1.5 * (u2 + v2));
-			grid->f[9 + j][i] = grid->f[j][i] + omega * (eq - grid->f[j][i]);
+		if(!grid->boundary[i]){
+			//collision
+			u2 = grid->u[i] * grid->u[i];
+			v2 = grid->v[i] * grid->v[i];
+			for(index_t j = 0; j < 9; ++j){
+				cu = 3.0 * (grid->index_x[j] * grid->u[i] + grid->index_y[j] * grid->v[i]);
+				eq = grid->rho[i] * grid->w[j] * (1 + cu + 0.5 * (cu * cu) - 1.5 * (u2 + v2));
+				grid->f[9 + j][i] = grid->f[j][i] + omega * (eq - grid->f[j][i]);
+			}
 		}
 	}
 
