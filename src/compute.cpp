@@ -122,7 +122,10 @@ Compute::~Compute(){
 
 void Compute::Init(){
 	index_t n = (_geom->Size()[0]) * (_geom->Size()[1]);
-	index_t m = _geom->Size()[0];
+	multi_index_t m;
+	m[0] = _geom->Size()[0];
+	m[1] = _geom->Size()[1];
+
 	real_t tmp_w[9] = {4.0/9.0,  1.0/9.0,  1.0/9.0,  1.0/9.0, 1.0/9.0,
 		  	  1.0/36.0, 1.0/36.0, 1.0/36.0, 1.0/36.0};
 	real_t tmp_index_x[9] = {0, 1, -1, 0, 0, 1, -1, 1, -1};
@@ -152,9 +155,9 @@ void Compute::Init(){
 
 	}
 	// init boundaries
-	for(int h = 1; h < m - 1; ++h){
-		for(int i = 1; i < m - 1; ++i){
-			int k = h * m + i;
+	for(int h = 1; h < m[1] - 1; ++h){
+		for(int i = 1; i < m[0] - 1; ++i){
+			int k = h * m[0] + i;
 			  if(_geom->get_cellType(k) != CellType_t::typeFluid){
 				  grid->boundary[k] = 1;
 				  cout << k << " ";
@@ -162,35 +165,39 @@ void Compute::Init(){
 		}
 	}
 
-	for(index_t i = 0; i < m - 1; ++i){
+	for(index_t i = 0; i < m[0] - 1; ++i){
 		  grid->boundary[i] = 1; //south
-		  grid->boundary[i * m] = 1; //west
-		  grid->boundary[(i + 1) * m - 1] = 1; //east
-		  grid->boundary[i + n - m] = 1; //north
+		  grid->boundary[i + n - m[0]] = 1; //north
 	}
+
+	for(index_t i = 0; i < m[1] - 1; ++i){
+		  grid->boundary[i * m[0]] = 1; //west
+		  grid->boundary[(i + 1) * m[0] - 1] = 1; //east
+	}
+
 	// east is in or outflow
 	if(grid->bound_stat[0] == 1){
-		for(index_t i = 0; i < m; ++i){
-			grid->boundary[(i + 1) * m - 1] = 0;
+		for(index_t i = 0; i < m[1]; ++i){
+			grid->boundary[(i + 1) * m[0] - 1] = 0;
 		}
 	}
 
 	// west is in or outflow
 	if(grid->bound_stat[1] == 1){
-		for(index_t i = 0; i < m; ++i){
-			grid->boundary[i * m] = 0;
+		for(index_t i = 0; i < m[1]; ++i){
+			grid->boundary[i * m[0]] = 0;
 		}
 	}
 	// north is in or outflow
 	if(grid->bound_stat[2] == 1){
-		for(index_t i = 0; i < m; ++i){
-			grid->boundary[n - m + i] = 0;
+		for(index_t i = 0; i < m[0]; ++i){
+			grid->boundary[n - m[0] + i] = 0;
 		}
 	}
 
 	// south is in or outflow
 	if(grid->bound_stat[3] == 1){
-		for(index_t i = 0; i < m; ++i){
+		for(index_t i = 0; i < m[0]; ++i){
 			grid->boundary[i] = 0;
 		}
 	}
@@ -200,7 +207,9 @@ void Compute::Init(){
 
 void Compute::TimeStep(bool printInfo){
 	index_t n = (_geom->Size()[0]) * (_geom->Size()[1]);
-	index_t m = _geom->Size()[0]; // + 2;
+	multi_index_t m;
+	m[0] = _geom->Size()[0];
+	m[1] = _geom->Size()[1];
 	//compute dt
 
 
@@ -247,7 +256,7 @@ void Compute::TimeStep(bool printInfo){
 
 	// inflow from east
 	if(grid->bound_stat[0]){
-		for(index_t i = m - 1; i <n; i += m){
+		for(index_t i = m[0] - 1; i <n; i += m[0]){
 			/// rho
 			grid->u[i] = grid->bound_vel[0];
 			grid->v[i] = grid->bound_vel[1];
@@ -265,7 +274,7 @@ void Compute::TimeStep(bool printInfo){
 
 	// inflow from west
 	if(grid->bound_stat[1]){
-		for(index_t i = 0; i <n; i += m){
+		for(index_t i = 0; i <n; i += m[0]){
 			/// rho
 			grid->u[i] = grid->bound_vel[2];
 			grid->v[i] = grid->bound_vel[3];
@@ -284,7 +293,7 @@ void Compute::TimeStep(bool printInfo){
 
 	// inflow from north
 	if(grid->bound_stat[2]){
-		for(index_t i = n - m; i <n; ++i){
+		for(index_t i = n - m[0]; i <n; ++i){
 			/// rho
 			grid->u[i] = grid->bound_vel[4];
 			grid->v[i] = grid->bound_vel[5];
@@ -302,7 +311,7 @@ void Compute::TimeStep(bool printInfo){
 
 	// inflow from south
 		if(grid->bound_stat[3]){
-			for(index_t i = 0; i <m; ++i){
+			for(index_t i = 0; i <m[0]; ++i){
 				/// rho
 				grid->u[i] = grid->bound_vel[6];
 				grid->v[i] = grid->bound_vel[7];
@@ -339,9 +348,9 @@ void Compute::TimeStep(bool printInfo){
 	int k;
 	//int debug;
 
-	for(int h = 1; h < m - 1; ++h){
-		for(int i = 1; i < m - 1; ++i){
-			k = h * m + i;
+	for(int h = 1; h < m[1] - 1; ++h){
+		for(int i = 1; i < m[0] - 1; ++i){
+			k = h * m[0] + i;
 			//cout <<k << " ";
 			// Boundarys don't stream
 			if(!grid->boundary[k]){
@@ -350,12 +359,12 @@ void Compute::TimeStep(bool printInfo){
 				for(int j = 1; j < 9; ++j){
 					//neighbor is boundary
 					//debug = k - x_delta[j] - y_delta[j] * m;
-					if(grid->boundary[k - x_delta[j] - y_delta[j] * m]){
+					if(grid->boundary[k - x_delta[j] - y_delta[j] * m[0]]){
 						// bounceback
 						grid->f[j][k] = grid->f[inv[j]+9][k];
 					}else{
 					//neighbor is no boundary (standard)
-						grid->f[j][k] = grid->f[9 + j][k - x_delta[j] - y_delta[j] * m];
+						grid->f[j][k] = grid->f[9 + j][k - x_delta[j] - y_delta[j] * m[0]];
 					}
 
 				}
