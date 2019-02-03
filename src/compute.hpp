@@ -20,6 +20,25 @@
 #ifndef __COMPUTE_HPP
 #define __COMPUTE_HPP
 //------------------------------------------------------------------------------
+
+struct Data{
+	real_t* w;
+	real_t* index_x;
+	real_t* index_y;
+	real_t** f;
+	real_t* boundary;
+	real_t* rho;
+	real_t* u;
+	real_t* v;
+
+	//constructor
+	Data(const index_t size);
+
+	//destructor
+	~Data();
+
+};
+
 class Compute {
 public:
   /// Creates a compute instance with given geometry and parameter
@@ -31,6 +50,8 @@ public:
   // @ param printInfo print information about current solver state (residual
   // etc.)
   void TimeStep(bool printInfo);
+
+  void Init();
 
   /// Returns the simulated time in total
   const real_t &GetTime() const;
@@ -88,6 +109,7 @@ private:
   Distri *_f;
   Distri *_f_new;
   Distri *_f_eq;
+  Data *grid;
 
   Solver *_solver;
 

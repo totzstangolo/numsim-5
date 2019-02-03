@@ -41,7 +41,7 @@ env.Append(
                      "-Wall",
                      "-Wextra",
                      "-pedantic",
-                     "-std=c++11",
+                     "-std=c++14",
                      "-Wno-unused-parameter"
            ]
           )

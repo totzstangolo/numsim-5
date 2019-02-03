@@ -9,6 +9,9 @@
 #include <algorithm>
 using namespace std;
 
+
+
+
 /// Constructs a grid based on a geometry
 Distri::Distri(const Geometry *geom){
 

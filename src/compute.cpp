@@ -13,7 +13,45 @@
 #include <ctime>
 #include <algorithm>
 #include <unistd.h>
+#include <vector>
+#include <stdio.h>
+#include <stdlib.h>
+#include <memory>
+
 using namespace std;
+
+//extern unique_ptr<data> grid = make_unique<data>();
+
+Data::Data(const index_t size){
+	w = new real_t[9];
+	index_x = new real_t[9];
+	index_y = new real_t[9];
+	f = new real_t* [18];
+	for(int i = 0; i < 18; ++i){
+		f[i] = new real_t[size];
+	}
+	boundary = new real_t[size];
+	rho = new real_t[size];
+	u = new real_t[size];
+	v = new real_t[size];
+}
+
+Data::~Data(){
+	if(rho!=nullptr){
+		delete[] w;
+		delete[] index_x;
+		delete[] index_y;
+		for(int i = 0; i < 18; ++i){
+				delete[] f[i];
+		}
+		delete[] f;
+		delete[] boundary;
+		delete[] rho;
+		delete[] u;
+		delete[] v;
+	}
+}
+
 
 Compute::Compute(const Geometry *geom, const Parameter *param){
 	_geom = geom;
@@ -58,6 +96,11 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 	_tmp = new Grid(_geom, compute_offset);
 	_p->Initialize(0);
 	_T->Initialize(0);
+	grid = new Data((_geom->Size()[0] + 2) * (_geom->Size()[1] + 2));
+	Init();
+	cout << _geom->Size()[0] + 2 << endl;
+
+
 }
 
 Compute::~Compute(){
@@ -72,8 +115,44 @@ Compute::~Compute(){
 	delete _f_new;
 }
 
+void Compute::Init(){
+	index_t n = (_geom->Size()[0] + 2) * (_geom->Size()[1] + 2);
+	real_t tmp_w[9] = {4.0/9.0,  1.0/9.0,  1.0/9.0,  1.0/9.0, 1.0/9.0,
+		  	  1.0/36.0, 1.0/36.0, 1.0/36.0, 1.0/36.0};
+	real_t tmp_index_x[9] = {0, 1, -1, 0, 0, 1, -1, 1, -1};
+	real_t tmp_index_y[9] = {0, 0, 0, 1, -1, 1, -1, -1, 1};
+	for(index_t j = 0; j < 9; ++j){
+		grid->w[j] = tmp_w[j];
+		grid->index_x[j] = tmp_index_x[j];
+		grid->index_y[j] = tmp_index_y[j];
+	}
+
+	for(index_t i = 0; i<n; ++i){
+		 grid->boundary[i] = 0.0;
+		 grid->rho[i] = 0.0;
+		 grid->u[i] = 0.0;
+		 grid->v[i] = 0.0;
+		 for(index_t j = 0; j < 9; ++j) {
+			 grid->f[j][i] = grid->w[j];
+			 grid->f[j + 9][i] = grid->w[j];
+		 }
+
+	}
+	  for(index_t i = 0; i < _geom->Size()[0] + 1; ++i){
+		  grid->boundary[i] = 1;
+		  grid->boundary[i * (_geom->Size()[0] + 2)] = 1;
+		  grid->boundary[(i + 1) * (_geom->Size()[0] + 2) - 1] = 1;
+		  //grid->boundary[i + n -(_geom->Size()[0] + 2)] = 1;
+	  }
+
+}
+
 void Compute::TimeStep(bool printInfo){
+	index_t n = (_geom->Size()[0] + 2) * (_geom->Size()[1] + 2);
+	index_t m = _geom->Size()[0] + 2;
 	//compute dt
+
+
 	real_t dt = _param->Dt();
     if(dt == 0){
 		dt = abs(std::min<real_t>(_geom->Mesh()[0]/_u->AbsMax(),_geom->Mesh()[1]/_v->AbsMax()));
@@ -91,6 +170,86 @@ void Compute::TimeStep(bool printInfo){
 	// kinematic viscosity
     real_t nu    = _geom->GetInflowVelo()[0] *_geom->Size()[0] / _param->Re();
 	real_t omega = 1.0 / (3.0*nu+1.0/2.0); //relaxation parameter
+
+	///collision kernel for GPU
+	// without iterator
+	real_t cu,u2,v2, eq = 0.0;
+	for(index_t i = 0; i < n; ++i){
+		grid->rho[i] = 0;
+
+		// computing rho, u and v
+		for(index_t j = 0; j < 9; ++j){
+			grid->rho[i] += grid->f[j][i];
+		}
+		grid->u[i] = (grid->f[1][i] - grid->f[2][i] + grid->f[5][i] - grid->f[6][i] + grid->f[7][i] - grid->f[8][i]) / grid->rho[i];
+		grid->v[i] = (grid->f[3][i] - grid->f[4][i] + grid->f[5][i] - grid->f[6][i] - grid->f[7][i] + grid->f[8][i]) / grid->rho[i];
+	}
+
+	// inflow from north
+	for(index_t i = n - m; i <n; ++i){
+		/// rho
+		grid->u[i] = _geom->GetInflowVelo()[0];
+		grid->v[i] = _geom->GetInflowVelo()[1];
+		grid->rho[i] = 1.0/(1.0 +_geom->GetInflowVelo()[1]) *
+			(  grid->f[0][i] +  grid->f[1][i] + grid->f[2][i]
+			 + 2.0 * (grid->f[3][i] + grid->f[5][i] + grid->f[8][i]));
+		/// (Microscopic)
+		grid->f[4][i] = grid->f[3][i] - 2/3 *  grid->rho[i] * _geom->GetInflowVelo()[1];
+		grid->f[6][i] = grid->f[5][i] + 1/2*(grid->f[1][i] - grid->f[2][i])
+					- 1/2*grid->rho[i]*_geom->GetInflowVelo()[0] - 1/6*grid->rho[i]*_geom->GetInflowVelo()[1];
+		grid->f[7][i] = grid->f[8][i] + 1/2*(grid->f[2][i] - grid->f[1][i])
+					+ 1/2*grid->rho[i]*_geom->GetInflowVelo()[0] - 1/6*grid->rho[i]*_geom->GetInflowVelo()[1];
+	}
+
+
+	for(index_t i = 0; i < n; ++i){
+		//collision
+		u2 = grid->u[i] * grid->u[i];
+		v2 = grid->v[i] * grid->v[i];
+		for(index_t j = 0; j < 9; ++j){
+			cu = 3.0 * (grid->index_x[j] * grid->u[i] + grid->index_y[j] * grid->v[i]);
+			eq = grid->rho[i] * grid->w[j] * (1 + cu + 0.5 * (cu * cu) - 1.5 * (u2 + v2));
+			grid->f[9 + j][i] = grid->f[j][i] + omega * (eq - grid->f[j][i]);
+		}
+	}
+
+	///streaming and bounce back
+	int inv[9] = {0, 2, 1, 4, 3, 6, 5, 8, 7};
+	int x_delta[9] = {0, 1, -1, 0, 0, 1, -1, 1, -1};
+	int y_delta[9] = {0, 0, 0, 1, -1, 1, -1, -1, 1};
+	int k;
+	//int debug;
+
+	for(int h = 1; h < m - 1; ++h){
+		for(int i = 1; i < m - 1; ++i){
+			k = h * m + i;
+			//cout <<k << " ";
+			// Boundarys don't stream
+			if(!grid->boundary[k]){
+				grid->f[0][k] = grid->f[9][k];
+
+				for(int j = 1; j < 9; ++j){
+					//neighbor is boundary
+					//debug = k - x_delta[j] - y_delta[j] * m;
+					if(grid->boundary[k - x_delta[j] - y_delta[j] * m]){
+						// bounceback
+						grid->f[j][k] = grid->f[inv[j]+9][k];
+					}else{
+					//neighbor is no boundary (standard)
+						grid->f[j][k] = grid->f[9 + j][k - x_delta[j] - y_delta[j] * m];
+					}
+
+				}
+
+			}
+		}
+
+	}
+
+
+
+
+	// iterator
 	Iterator it(_geom);
 	for(it.First();it.Valid();it.Next()){
 		_f->rho(it) = _f->sum_vel(it);
@@ -98,6 +257,7 @@ void Compute::TimeStep(bool printInfo){
 		_u->Cell(it) = _f->sum_c_vel_x(it)/_f->rho(it);
 		_v->Cell(it) = _f->sum_c_vel_y(it)/_f->rho(it);
 	}
+
 	BoundaryIterator lid(_geom);
 	lid.SetBoundary(2);
 
@@ -117,7 +277,6 @@ void Compute::TimeStep(bool printInfo){
 	}
 
 	/// Collision
-	real_t cu,u2,v2 = 0.0;
 	for(it.First();it.Valid();it.Next()){
 		u2 = _u->Cell(it)*_u->Cell(it);
 		v2 = _v->Cell(it)*_v->Cell(it);
@@ -168,6 +327,13 @@ void Compute::TimeStep(bool printInfo){
 	/////////////////////////////////////////////////////////////////////////
 	////////////// END LATTICE BOLTZMANN IMPLEMENTATION /////////////////////
 	/////////////////////////////////////////////////////////////////////////
+
+	memcpy(&_u->Cell(0), &grid->u[0], sizeof(real_t) *n);
+	memcpy(&_v->Cell(0), &grid->v[0], sizeof(real_t) *n);
+	/*for(it.First();it.Valid();it.Next()){
+		_u->Cell(it) = grid->u[it];
+	}*/
+
 	_t += dt;
 
 	if(printInfo)

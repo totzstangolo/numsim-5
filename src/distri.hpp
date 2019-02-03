@@ -16,10 +16,25 @@
  */
 
 #include "typedef.hpp"
+#include <iostream>
+#include <vector>
+#include <stdio.h>
+#include <stdlib.h>
+#include <memory>
+
+using namespace std;
+
 //------------------------------------------------------------------------------
 #ifndef __DISTRI_HPP
 #define __DISTRI_HPP
 //------------------------------------------------------------------------------
+
+
+
+struct border{
+
+};
+
 class Distri {
 public:
   /// Constructs a grid based on a geometry

@@ -22,6 +22,18 @@
 #include "geometry.hpp"
 #include "parameter.hpp"
 #include "grid.hpp"
+#include "distri.hpp"
+#include <cstdlib>
+#include <iostream>
+#include <cmath>
+#include <ctime>
+#include <algorithm>
+#include <unistd.h>
+#include <vector>
+#include <stdio.h>
+#include <stdlib.h>
+#include <memory>
+
 
 #ifdef USE_DEBUG_VISU
 #include "visu.hpp"
@@ -32,6 +44,8 @@
 #endif // USE_VTK
 
 #include "argvparser.hpp"
+
+using namespace std;
 
 
 int main(int argc, char **argv) {
@@ -54,6 +68,9 @@ int main(int argc, char **argv) {
   parser.exec(argc, argv);
   // Create the fluid solver
   Compute comp(&geom, &param);
+
+  //comp.Init();
+
 
 
 
