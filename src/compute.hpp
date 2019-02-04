@@ -16,10 +16,29 @@
  */
 
 #include "typedef.hpp"
+#include <cuda.h>
+#include <cuda_runtime.h>
+
 //------------------------------------------------------------------------------
 #ifndef __COMPUTE_HPP
 #define __COMPUTE_HPP
 //------------------------------------------------------------------------------
+
+extern cudaError_t CU_err;
+extern cudaError_t _err;
+
+
+// Simple error checking function for CUDA actions
+#define CUDA_CALL( call )               \
+{                                       \
+cudaError_t result = call;              \
+if ( cudaSuccess != result )            \
+    std::cerr << "CUDA error " << result << " in " << __FILE__ << ":" << __LINE__ << ": " << cudaGetErrorString( result ) << " (" << #call << ")" << std::endl;  \
+}
+
+
+//------------------------------------------------------------------------------
+
 
 struct Data{
 	real_t* w;
@@ -41,7 +60,9 @@ struct Data{
 
 };
 
-void hi();
+//void InitGpu(Data grid, index_t n);
+
+//__global__ void debugkernel(Data *d_grid);
 
 class Compute {
 public:

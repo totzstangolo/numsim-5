@@ -19,7 +19,6 @@
 
 using namespace std;
 
-//extern unique_ptr<data> grid = make_unique<data>();
 
 Data::Data(const index_t size){
 	w = new real_t[9];
@@ -45,7 +44,7 @@ Data::~Data(){
 		delete[] bound_stat;
 		delete[] bound_vel;
 		for(int i = 0; i < 18; ++i){
-				delete[] f[i];
+			delete[] f[i];
 		}
 		delete[] f;
 		delete[] boundary;
@@ -96,6 +95,7 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 	real_t n = (_geom->Size()[0]) * (_geom->Size()[1]);
 	grid = new Data(n);
 	Init();
+	//InitGpu(*grid, n);
 
 }
 

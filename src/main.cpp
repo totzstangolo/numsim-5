@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory>
+//#include "compute.cu"
 
 
 #ifdef USE_DEBUG_VISU
