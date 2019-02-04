@@ -41,6 +41,8 @@ struct Data{
 
 };
 
+void hi();
+
 class Compute {
 public:
   /// Creates a compute instance with given geometry and parameter
