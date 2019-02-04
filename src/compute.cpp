@@ -120,7 +120,6 @@ void Compute::Init(){
 		grid->bound_stat[l] = _geom->GetBoundStat()[l];
 		grid->bound_vel[2*l] = _geom->GetBoundVel()[2* l]; //x-coord
 		grid->bound_vel[2*l +1] = _geom->GetBoundVel()[2* l +1]; //y-coord
-		cout << grid->bound_stat[l] << " " << grid->bound_vel[2*l] << " " << grid->bound_vel[2*l + 1] << endl;
 	}
 
 	for(index_t j = 0; j < 9; ++j){
@@ -146,7 +145,6 @@ void Compute::Init(){
 			int k = h * m[0] + i;
 			  if(_geom->get_cellType(k) != CellType_t::typeFluid){
 				  grid->boundary[k] = 1;
-				  cout << k << " ";
 			  }
 		}
 	}
@@ -337,7 +335,6 @@ void Compute::TimeStep(bool printInfo){
 	for(int h = 1; h < m[1] - 1; ++h){
 		for(int i = 1; i < m[0] - 1; ++i){
 			k = h * m[0] + i;
-			//cout <<k << " ";
 			// Boundarys don't stream
 			if(!grid->boundary[k]){
 				grid->f[0][k] = grid->f[9][k];
@@ -489,10 +486,7 @@ void Compute::TempEqu(const real_t &dt){
 		vty = _T->DC_dvT_y(intIterator,_param->Alpha(),_v);
 		_T->Cell(intIterator) = _T->Cell(intIterator) +
 				(pref*(txx+tyy)-utx-vty)*dt;
-		// std::cout << "Temperature in cell " << intIterator.Value() << ": "
-		// 	<< _T->Cell(intIterator) << std::endl;
 	}
-	// exit(0);
 }
 
 /// Compute the RHS of the poisson equation
