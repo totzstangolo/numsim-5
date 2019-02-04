@@ -22,7 +22,6 @@
 #include "geometry.hpp"
 #include "parameter.hpp"
 #include "grid.hpp"
-#include "distri.hpp"
 #include <cstdlib>
 #include <iostream>
 #include <cmath>
@@ -155,7 +154,7 @@ VTK vtk(geom.Mesh(), geom.Length(), geom.TotalLength(), offset, comm.getRank(),
 #endif
 
     // Run a few steps
-    for (uint32_t i = 0; i < 99; ++i) {
+    for (uint32_t i = 0; i < 9; ++i) {
       comp.TimeStep(false);
     }
 

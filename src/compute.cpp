@@ -6,7 +6,6 @@
 #include "compute.hpp"
 #include "iterator.hpp"
 #include "solver.hpp"
-#include "distri.hpp"
 #include <cstdlib>
 #include <iostream>
 #include <cmath>
@@ -82,14 +81,6 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 	compute_offset[0] = -0.5 * h[0];
 	compute_offset[1] = -0.5 * h[0];
 
-/*
- * 	_f = new Distri(_geom,compute_offset);
-	_f_new = new Distri(_geom,compute_offset);
-	_f->Initialize(0.0);
-	_f_new->Initialize(0.0);
-	_f_eq = new Distri(_geom,compute_offset);
-	_f_eq->Initialize(0.0);
-*/
 	_u = new Grid(_geom, compute_offset);
 	_u->Initialize(0);
 
@@ -113,11 +104,6 @@ Compute::~Compute(){
 	delete _v;
 	delete _p;
 	delete _T;
-	// delete _rhs;
-	// delete _tmp;
-	// delete _solver;
-	// delete _f;
-	// delete _f_new;
 }
 
 void Compute::Init(){
@@ -224,7 +210,7 @@ void Compute::TimeStep(bool printInfo){
 		printf("dt: %f \n", dt);
 	}
 	/////////////////////////////////////////////////////////////////////////
-	////////////// LATTICE BOLTZMANN IMPLEMENTATION (SECOND TRY) /////////////
+	////////////// LATTICE BOLTZMANN IMPLEMENTATION /////////////////////////
 	/////////////////////////////////////////////////////////////////////////
 
 	// kinematic viscosity
@@ -374,89 +360,9 @@ void Compute::TimeStep(bool printInfo){
 
 	}
 
-
-
-
-	/*// iterator
-	Iterator it(_geom);
-	for(it.First();it.Valid();it.Next()){
-		_f->rho(it) = _f->sum_vel(it);
-		_p->Cell(it) = _f->rho(it);
-		_u->Cell(it) = _f->sum_c_vel_x(it)/_f->rho(it);
-		_v->Cell(it) = _f->sum_c_vel_y(it)/_f->rho(it);
-	}
-
-	BoundaryIterator lid(_geom);
-	lid.SetBoundary(2);
-
-	for(lid.First();lid.Valid();lid.Next()){
-		/// Zhu, He (Macroscopic)
-		_u->Cell(lid) = _geom->GetInflowVelo()[0];
-		_v->Cell(lid) = _geom->GetInflowVelo()[1];
-		_f->rho(lid) = 1.0/(1.0+_v->Cell(lid)) *
-			(  _f->Cell(lid,0)+_f->Cell(lid,1)+_f->Cell(lid,3)
-			 + 2*(_f->Cell(lid,2)+_f->Cell(lid,5)+_f->Cell(lid,6)));
-		/// (Microscopic)
-		_f->Cell(lid,4) = _f->Cell(lid,2) - 2/3*_f->rho(lid)*_v->Cell(lid);
-		_f->Cell(lid,8) = _f->Cell(lid,6) + 1/2*(_f->Cell(lid,3)-_f->Cell(lid,1))
-			+ 1/2*_f->rho(lid)*_u->Cell(lid) - 1/6*_f->rho(lid)*_v->Cell(lid);
-		_f->Cell(lid,7) = _f->Cell(lid,5) + 1/2*(_f->Cell(lid,1)-_f->Cell(lid,3))
-			- 1/2*_f->rho(lid)*_u->Cell(lid) - 1/6*_f->rho(lid)*_v->Cell(lid);
-	}
-
-	/// Collision
-	for(it.First();it.Valid();it.Next()){
-		u2 = _u->Cell(it)*_u->Cell(it);
-		v2 = _v->Cell(it)*_v->Cell(it);
-		for(int iCount=0;iCount<9;iCount++){
-			cu = 3*(_f->ex(iCount)*_u->Cell(it)+_f->ey(iCount)*_v->Cell(it));
-        	_f_eq->Cell(it,iCount) = _f->rho(it)*_f->t(iCount)
-            * ( 1 + cu + 1/2*(cu*cu) - 3/2*(u2+v2));
-        	_f_new->Cell(it,iCount) = _f->Cell(it,iCount)
-				- omega * (_f->Cell(it,iCount) - _f_eq->Cell(it,iCount));
-		}
-	}
-
-	// bounce back at walls
-	real_t opp[9] = { 0, 3, 4, 1,  2, 7, 8,  5,  6};
-	BoundaryIterator walls(_geom);
-	walls.SetBoundary(0);
-	for(walls.First();walls.Valid();walls.Next()){
-		for (int iCount=0;iCount < 9;iCount++){
-	        _f_new->Cell(walls,iCount) = _f->Cell(walls,opp[iCount]);
-		}
-	}
-	walls.SetBoundary(1);
-	for(walls.First();walls.Valid();walls.Next()){
-		for (int iCount=0;iCount < 9;iCount++){
-	        _f_new->Cell(walls,iCount) = _f->Cell(walls,opp[iCount]);
-		}
-	}
-	walls.SetBoundary(3);
-	for(walls.First();walls.Valid();walls.Next()){
-		for (int iCount=0;iCount < 9;iCount++){
-	        _f_new->Cell(walls,iCount) = _f->Cell(walls,opp[iCount]);
-		}
-	}
-
-	// STREAMING
-	InteriorIterator it2(_geom);
-	for(it2.First();it2.Valid();it2.Next()){
-		_f->Cell(it2,0) = _f_new->Cell(it2,0);
-		_f->Cell(it2,1) = _f_new->Cell(it2.Right(),1);
-		_f->Cell(it2,2) = _f_new->Cell(it2.Top(),2);
-		_f->Cell(it2,3) = _f_new->Cell(it2.Left(),3);
-		_f->Cell(it2,4) = _f_new->Cell(it2.Down(),4);
-		_f->Cell(it2,5) = _f_new->Cell(it2.Top().Right(),5);
-		_f->Cell(it2,6) = _f_new->Cell(it2.Top().Left(),6);
-		_f->Cell(it2,7) = _f_new->Cell(it2.Down().Left(),7);
-		_f->Cell(it2,8) = _f_new->Cell(it2.Down().Right(),8);
-	}
 	/////////////////////////////////////////////////////////////////////////
 	////////////// END LATTICE BOLTZMANN IMPLEMENTATION /////////////////////
 	/////////////////////////////////////////////////////////////////////////
-	 *
-	 */
 
 	memcpy(&_u->Cell(0), &grid->u[0], sizeof(real_t) * n);
 	memcpy(&_v->Cell(0), &grid->v[0], sizeof(real_t) * n);
