@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "communicator.hpp"
+//#include "communicator.hpp"
 #include "vtk.hpp"
 #include <cstring>
 #include <cstdio>

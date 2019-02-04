@@ -17,7 +17,7 @@
 
 //------------------------------------------------------------------------------
 #include "typedef.hpp"
-#include "communicator.hpp"
+//#include "communicator.hpp"
 #include "compute.hpp"
 #include "geometry.hpp"
 #include "parameter.hpp"
@@ -51,38 +51,46 @@ using namespace std;
 int main(int argc, char **argv) {
 
   // Create parameter and geometry instances with default values
-  Communicator comm(&argc, &argv);
+  //Communicator comm(&argc, &argv);
   Parameter param;
-  Geometry geom(&comm);
+  printf("Hi \n");
+
+  Geometry geom;
+  printf("Hi \n");
+
   ARGVParser parser;
   parser.bind("-geom", [&geom](int ac, char **av) -> int {
-    if (ac != 1) return 0;
-    geom.Load(av[0]);
+	geom.Load(av[0]);
     return 1;
   });
+  printf("Hi \n");
+
   parser.bind("-param", [&param](int ac, char **av) -> int {
-    if (ac != 1) return 0;
     param.Load(av[0]);
     return 1;
   });
+  printf("Hi \n");
+
   parser.exec(argc, argv);
+  printf("Hi \n");
+
   // Create the fluid solver
   Compute comp(&geom, &param);
 
-  //comp.Init();
+  printf("Hi \n");
+
+
 
 
 
 
 #ifdef USE_VTK
-  if (comm.getRank() == 0) {
     // check if folder "VTK" exists
     struct stat info;
 
     if (stat("VTK", &info) != 0) {
       system("mkdir VTK");
     }
-  }
 #endif
 
 // Create and initialize the visualization
@@ -102,12 +110,13 @@ int main(int argc, char **argv) {
 //           comm.getSize(), comm.ThreadDim());
 // #endif
 
-multi_real_t offset;
-offset[0] = comm.ThreadIdx()[0] * (geom.Mesh()[0] * (double)(geom.Size()[0] - 2));
-offset[1] = comm.ThreadIdx()[1] * (geom.Mesh()[1] * (double)(geom.Size()[1] - 2));
+multi_index_t dim;
+dim[0] = 1;
+dim[1] = 1;
+
 #ifdef USE_VTK
-VTK vtk(geom.Mesh(), geom.Length(), geom.TotalLength(), offset, comm.getRank(),
-      comm.getSize(), comm.ThreadDim());
+VTK vtk(geom.Mesh(), geom.Length(), geom.TotalLength(), 0,
+      1, dim);
 #endif
 
 #ifdef USE_DEBUG_VISU
@@ -154,14 +163,11 @@ VTK vtk(geom.Mesh(), geom.Length(), geom.TotalLength(), offset, comm.getRank(),
     vtk.Finish();
 #endif
 
-    // Run a few steps
-    for (uint32_t i = 0; i < 9; ++i) {
-      comp.TimeStep(false);
-    }
-
     // suppress output on other nodes than rank 0
-    bool printOnlyOnMaster = !comm.getRank();
+    bool printOnlyOnMaster = 1;
+    printf("Hi \n");
     comp.TimeStep(printOnlyOnMaster);
   }
+  comp.CudaFree;
   return 0;
 }

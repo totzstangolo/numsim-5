@@ -16,11 +16,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory>
+#include <cstring>
 
 using namespace std;
 
 
 Data::Data(const index_t size){
+	sizeTest = size;
 	w = new real_t[9];
 	index_x = new real_t[9];
 	index_y = new real_t[9];
@@ -92,10 +94,13 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 	_p->Initialize(0);
 	_T->Initialize(0);
 	// Gitterschraube
-	real_t n = (_geom->Size()[0]) * (_geom->Size()[1]);
+	index_t n = (_geom->Size()[0]) * (_geom->Size()[1]);
 	grid = new Data(n);
+	u_tmp = new real_t[n];
+	v_tmp = new real_t[n];
+	p_tmp = new real_t[n];
 	Init();
-	//InitGpu(*grid, n);
+	InitGpu(grid, n);
 
 }
 
@@ -104,6 +109,9 @@ Compute::~Compute(){
 	delete _v;
 	delete _p;
 	delete _T;
+	delete u_tmp;
+	delete v_tmp;
+	delete p_tmp;
 }
 
 void Compute::Init(){
@@ -203,14 +211,6 @@ void Compute::TimeStep(bool printInfo){
 		dt = std::min<real_t>(dt,_dtlimit);
 		dt *= _param->Tau();
 	}
-
-	if(printInfo) {
-		printf("dt: %f \n", dt);
-	}
-	/////////////////////////////////////////////////////////////////////////
-	////////////// LATTICE BOLTZMANN IMPLEMENTATION /////////////////////////
-	/////////////////////////////////////////////////////////////////////////
-
 	// kinematic viscosity
 	real_t vel_nu = 0.0;
 	real_t vel_nu_tmp = 0.0;
@@ -221,6 +221,18 @@ void Compute::TimeStep(bool printInfo){
 	real_t nu    = vel_nu *_geom->Size()[0] / _param->Re();
 	real_t omega = 1.0 / (3.0*nu+1.0/2.0); //relaxation parameter
 
+    for(index_t i = 0; i <100; ++i){
+    	KernelLaunch(n, m, grid, omega);
+    }
+
+	if(printInfo) {
+		printf("dt: %f \n", dt);
+	}
+	/////////////////////////////////////////////////////////////////////////
+	////////////// LATTICE BOLTZMANN IMPLEMENTATION /////////////////////////
+	/////////////////////////////////////////////////////////////////////////
+
+/*
 	///collision kernel for GPU
 	// without iterator
 	real_t cu,u2,v2, eq = 0.0;
@@ -364,8 +376,15 @@ void Compute::TimeStep(bool printInfo){
 	memcpy(&_u->Cell(0), &grid->u[0], sizeof(real_t) * n);
 	memcpy(&_v->Cell(0), &grid->v[0], sizeof(real_t) * n);
 	memcpy(&_p->Cell(0), &grid->rho[0], sizeof(real_t) * n);
+	*/
 
-	_t += dt;
+	CopyToCpu(n, u_tmp, v_tmp, p_tmp);
+memcpy(&_u->Cell(0), u_tmp, sizeof(real_t) * n);
+memcpy(&_v->Cell(0), v_tmp, sizeof(real_t) * n);
+memcpy(&_p->Cell(0), p_tmp, sizeof(real_t) * n);
+
+
+	_t = _t + 100 *dt;
 
 	if(printInfo)
 		// printf("time: %f \n itercount: %d \n max_dt: %f \n", _t, _iter_count, _max_dt);
@@ -496,3 +515,8 @@ void Compute::RHS(const real_t &dt){
 		_rhs->Cell(intIterator) = (_F->dx_l(intIterator) + _G->dy_l(intIterator)) / dt;
 	}
 }
+
+void Compute::CudaFree(){
+	FreeCuda();
+}
+

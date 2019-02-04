@@ -18,7 +18,7 @@
 #include "geometry.hpp"
 #include "iterator.hpp"
 #include "grid.hpp"
-#include "communicator.hpp"
+//#include "communicator.hpp"
 #include "parameter.hpp"
 #include <stdio.h>
 #include <string.h>
@@ -62,29 +62,29 @@ Geometry::~Geometry() {
 //------------------------------------------------------------------------------
 void Geometry::Load(const char *file) {
    FILE *handle = fopen(file, "r");
-   double inval[2];
-   double inval_vel[8];
+   real_t inval[2];
+   real_t inval_vel[8];
    index_t inval_ind[4];
    char name[200000];
    while (!feof(handle)) {
      if (!fscanf(handle, "%s =", name))
        continue;
      if (strcmp(name, "size") == 0) {
-       if (fscanf(handle, " %lf %lf\n", &inval[0], &inval[1])) {
+       if (fscanf(handle, " %f %f\n", &inval[0], &inval[1])) {
          _size[0] = inval[0];
          _size[1] = inval[1];
        }
        continue;
      }
      if (strcmp(name, "length") == 0) {
-       if (fscanf(handle, " %lf %lf\n", &inval[0], &inval[1])) {
+       if (fscanf(handle, " %f %f\n", &inval[0], &inval[1])) {
          _length[0] = inval[0];
          _length[1] = inval[1];
        }
        continue;
      }
      if (strcmp(name, "velocity") == 0) {
-       if (fscanf(handle, " %lf %lf %lf %lf %lf %lf %lf %lf\n", &inval_vel[0], &inval_vel[1], &inval_vel[2], &inval_vel[3], &inval_vel[4], &inval_vel[5], &inval_vel[6], &inval_vel[7])) {
+       if (fscanf(handle, " %f %f %f %f %f %f %f %f\n", &inval_vel[0], &inval_vel[1], &inval_vel[2], &inval_vel[3], &inval_vel[4], &inval_vel[5], &inval_vel[6], &inval_vel[7])) {
          _velocity[0] = inval_vel[0];
          _velocity[1] = inval_vel[1];
          for (int i = 0; i < 8; ++i){
@@ -102,7 +102,7 @@ void Geometry::Load(const char *file) {
        continue;
      }
      if (strcmp(name, "pressure") == 0) {
-       if (fscanf(handle, " %lf\n", &inval[0]))
+       if (fscanf(handle, " %f\n", &inval[0]))
          _pressure = inval[0];
        continue;
      }
@@ -151,11 +151,9 @@ void Geometry::Load(const char *file) {
                break;
              case 'H':
                _cell[x + y * _size[0]].type = typeInH;
-               parabolic = true;
                break;
              case 'V':
                _cell[x + y * _size[0]].type = typeInV;
-               parabolic = true;
                break;
              default:
                if (x == 0 || x == _size[0] - 1 || y == 0 || y == _size[1] - 1)
@@ -170,99 +168,7 @@ void Geometry::Load(const char *file) {
          }
          if (!_cell)
            break;
-         // Process it
-         for (int y = 0; y < _size[1]; ++y) {
-           for (int x = 0; x < _size[0]; ++x) {
-             int check = 0;
-             if (_cell[x + y * _size[0]].type == typeFluid)
-               continue;
-             if (x < _size[0] - 1 &&
-                 _cell[x + 1 + y * _size[0]].type == typeFluid)
-               check |= 8;
-             if (x > 0 && _cell[x - 1 + y * _size[0]].type == typeFluid)
-               check |= 2;
-             if (y < _size[1] - 1 &&
-                 _cell[x + (y + 1) * _size[0]].type == typeFluid)
-               check |= 1;
-             if (y > 0 && _cell[x + (y - 1) * _size[0]].type == typeFluid)
-               check |= 4;
-             switch (check) {
-             case 5:
-             case 7:
-             case 10:
-             case 11:
-             case 13:
-             case 14:
-             case 15:
-               _cell[x + y * _size[0]].type = typeFluid;
-               _cell[x + y * _size[0]].fluid = cellNone;
-               if (x > 0)
-                 x--;
-               if (y > 0)
-                 y--;
-               break;
-             case 1:
-               _cell[x + y * _size[0]].fluid = cellN;
-               break;
-             case 2:
-               _cell[x + y * _size[0]].fluid = cellW;
-               break;
-             case 3:
-               _cell[x + y * _size[0]].fluid = cellNW;
-               break;
-             case 4:
-               _cell[x + y * _size[0]].fluid = cellS;
-               break;
-             case 6:
-               _cell[x + y * _size[0]].fluid = cellSW;
-               break;
-             case 8:
-               _cell[x + y * _size[0]].fluid = cellE;
-               break;
-             case 9:
-               _cell[x + y * _size[0]].fluid = cellNE;
-               break;
-             case 12:
-               _cell[x + y * _size[0]].fluid = cellSE;
-               break;
-             };
-           }
-         }
-         // Parabolic stuff
-         if (parabolic) {
-           for (int y = 0; y < _size[1]; ++y) {        // uint32_t durch int ersetzt
-             for (int x = 0; x < _size[0]; ++x) {
-               int32_t dist1 = 0;
-               int32_t dist2 = 0;
-               switch (_cell[x + y * _size[0]].type) {
-               case typeInH:
-                 while (x - dist1 >= 0 &&
-                        _cell[x - dist1 + y * _size[0]].type == typeInH)
-                   ++dist1;
-                 while (x + dist2 < _size[0] &&
-                        _cell[x + dist2 + y * _size[0]].type == typeInH)
-                   ++dist2;
-                 _cell[x + y * _size[0]].factor =
-                     4.0 * ((real_t)(dist1)-0.5) * ((real_t)(dist2)-0.5) /
-                     (real_t)((dist1 + dist2 - 1) * (dist1 + dist2 - 1));
-                 break;
-               case typeInV:
-                 while (y - dist1 >= 0 &&
-                        _cell[x + (y - dist1) * _size[0]].type == typeInV)
-                   ++dist1;
-                 while (y + dist2 < _size[1] &&
-                        _cell[x + (dist2 + y) * _size[0]].type == typeInV)
-                   ++dist2;
-                 _cell[x + y * _size[0]].factor =
-                     4.0 * ((real_t)(dist1)-0.5) * ((real_t)(dist2)-0.5) /
-                     (real_t)((dist1 + dist2 - 1) * (dist1 + dist2 - 1));
-                 break;
-               default:
-                 break;
-               };
-             }
-           }
-         }
+
          _size[0] -= 2;
          _size[1] -= 2;
        }
@@ -276,30 +182,18 @@ void Geometry::Load(const char *file) {
 
    _boffset = 0;
 
-   if (_comm) {
-     _bsize[0] = _size[0] / _comm->ThreadDim()[0] + 2;
-     _bsize[1] = _size[1] / _comm->ThreadDim()[1] + 2;
-     _boffset = (_bsize[0] - 2) * _comm->ThreadIdx()[0] +
-                (_size[0] + 2) * (_bsize[1] - 2) * _comm->ThreadIdx()[1];
-     if (_comm->ThreadIdx()[0] == _comm->ThreadDim()[0] - 1)
-       _bsize[0] += _size[0] % _comm->ThreadDim()[0];
-     if (_comm->ThreadIdx()[1] == _comm->ThreadDim()[1] - 1)
-       _bsize[1] += _size[1] % _comm->ThreadDim()[0];
 
-     _blength[0] = _h[0] * (_bsize[0] - 2);
-     _blength[1] = _h[1] * (_bsize[1] - 2);
-   }
 
    _size[0] += 2;
    _size[1] += 2;
 
-   if (!_comm)
-     _bsize = _size;
+
+    _bsize = _size;
  }
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-Geometry::Geometry(const Communicator *comm) : _comm(comm) {
+/*Geometry::Geometry(const Communicator *comm) : _comm(comm) {
   _length[0] = 1.0;
   _length[1] = 1.0;
   _size[0] = 128;
@@ -326,11 +220,11 @@ Geometry::Geometry(const Communicator *comm) : _comm(comm) {
 
   _cell = NULL;
   _boffset = 0;
-}
+}*/
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-Geometry::Geometry() : _comm(NULL) {
+Geometry::Geometry() {
   _length[0] = 1.0;
   _length[1] = 1.0;
   _size[0] = 128;

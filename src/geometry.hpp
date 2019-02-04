@@ -16,7 +16,7 @@
  */
 
 #include "typedef.hpp"
-#include "communicator.hpp"
+//#include "communicator.hpp"
 #include "iterator.hpp"
 #include "parameter.hpp"
 //------------------------------------------------------------------------------
@@ -90,7 +90,6 @@ public:
   //    -------------
   //       u=0, v=0
   Geometry();
-  Geometry(const Communicator *comm);
   ~Geometry();
 
   /// Loads a geometry from a file
@@ -140,7 +139,7 @@ public:
   index_t *_bound_true = new index_t[4];
 
 private:
-  const Communicator *_comm;
+  const index_t _comm = 0;
 
   Cell_t *_cell;
 

@@ -41,6 +41,7 @@ if ( cudaSuccess != result )            \
 
 
 struct Data{
+	index_t sizeTest;
 	real_t* w;
 	real_t* index_x;
 	real_t* index_y;
@@ -60,9 +61,34 @@ struct Data{
 
 };
 
-//void InitGpu(Data grid, index_t n);
+void InitGpu(Data *grid, index_t n);
 
-//__global__ void debugkernel(Data *d_grid);
+void KernelLaunch(index_t n, multi_index_t m, Data *grid, real_t omega);
+
+void CopyToCpu(index_t n, real_t * u_tmp, real_t * v_tmp, real_t * p_tmp);
+
+void FreeCuda();
+
+__global__ void ForcesKernel(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f, real_t *d_bound_vel);
+
+__global__ void BoundKernelEast(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f, real_t *d_bound_vel);
+
+__global__ void BoundKernelWest(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f, real_t *d_bound_vel);
+
+__global__ void BoundKernelNorth(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f, real_t *d_bound_vel);
+
+__global__ void BoundKernelSouth(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f, real_t *d_bound_vel);
+
+__global__ void CollisionKernel(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f, real_t *d_bound_vel,
+		real_t omega, real_t* d_w, real_t* d_index_x, real_t* d_index_y);
+
+__global__ void StreamingKernel(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t *d_f, int * d_inv, int *d_x_delta, int *d_y_delta);
+
+
+
+__global__ void DebugKernel(Data* grid);
+
+
 
 class Compute {
 public:
@@ -99,10 +125,26 @@ public:
   /// Computes and returns the stream line values
   const Grid *GetStream();
 
+  static void CudaFree();
+
+  /*real_t* GetU_tmp() const{ return u_tmp;}
+  real_t* GetV_tmp() const{ return v_tmp;}
+  real_t* Getp_tmp() const{ return p_tmp;}*/
+
+  // copy dummies
+  real_t * u_tmp;
+  real_t * v_tmp;
+  real_t * p_tmp;
+
+
+
 private:
   // testing
   index_t _iter_count;
   real_t _max_dt;
+
+
+
 
   // current timestep
   real_t _t;

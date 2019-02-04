@@ -18,19 +18,20 @@
 cmake_minimum_required (VERSION 3.9)
 
 project (NUMSIM LANGUAGES CXX CUDA)
+set(CXX nvcc)
 
 # SET ( CMAKE_CXX_FLAGS "-D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES" CACHE STRING "compile flags" FORCE)
 
 add_definitions(-DUSE_VTK)
 # find mpi
-find_package (MPI REQUIRED)
-INCLUDE_DIRECTORIES(${INCLUDE_DIRECTORIES} ${MPI_INCLUDE_PATH})
+#find_package (MPI REQUIRED)
+#INCLUDE_DIRECTORIES(${INCLUDE_DIRECTORIES} ${MPI_INCLUDE_PATH})
 
 
 
 
 add_executable(numsim
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/communicator.hpp
+#  ${CMAKE_CURRENT_SOURCE_DIR}/src/communicator.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/compute.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/geometry.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/grid.hpp
@@ -41,7 +42,7 @@ add_executable(numsim
   ${CMAKE_CURRENT_SOURCE_DIR}/src/vtk.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/zeitgeist.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/communicator.cpp
+#  ${CMAKE_CURRENT_SOURCE_DIR}/src/communicator.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/compute.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/geometry.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/grid.cpp
@@ -52,11 +53,11 @@ add_executable(numsim
   ${CMAKE_CURRENT_SOURCE_DIR}/src/compute.cu
 )
 
-  target_link_libraries (numsim ${MPI_LIBRARIES})
-  set_target_properties(numsim PROPERTIES
-    COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
-  set_target_properties (numsim PROPERTIES
-    LINK_FLAGS "${MPI_LINK_FLAGS}")
+#  target_link_libraries (numsim ${MPI_LIBRARIES})
+#  set_target_properties(numsim PROPERTIES
+#    COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
+#  set_target_properties (numsim PROPERTIES
+#    LINK_FLAGS "${MPI_LINK_FLAGS}")
 
 
 
