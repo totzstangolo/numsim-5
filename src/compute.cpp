@@ -90,7 +90,7 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 
 	_p = new Grid(_geom, compute_offset);
 	_T = new Grid(_geom, compute_offset);
-	_tmp = new Grid(_geom, compute_offset);
+	//_tmp = new Grid(_geom, compute_offset);
 	_p->Initialize(0);
 	_T->Initialize(0);
 	// Gitterschraube
@@ -99,8 +99,23 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 	u_tmp = new real_t[n];
 	v_tmp = new real_t[n];
 	p_tmp = new real_t[n];
+	index_t small_n = (_geom->Size()[0] -2) * (_geom->Size()[1] -2);
+	ind_stream = new index_t[small_n];
+	index_t count = 0;
+	for(index_t h = 1; h < _geom->Size()[1] - 1; ++h){
+			for(index_t i = 1; i < _geom->Size()[0] - 1; ++i){
+				index_t k = h * _geom->Size()[0] + i;
+				ind_stream[count] = k;
+				count++;
+			}
+	}
+	printf("Hi \n");
 	Init();
-	InitGpu(grid, n);
+	printf("Hi \n");
+	InitGpu(grid, n, small_n, ind_stream);
+	printf("Hi after Init \n");
+
+
 
 }
 
@@ -112,6 +127,7 @@ Compute::~Compute(){
 	delete u_tmp;
 	delete v_tmp;
 	delete p_tmp;
+	delete ind_stream;
 }
 
 void Compute::Init(){

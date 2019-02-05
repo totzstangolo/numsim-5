@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <memory>
 
+index_t *d_stream = nullptr;
 real_t *d_w = nullptr;
 real_t *d_index_x = nullptr;
 real_t *d_index_y = nullptr;
@@ -28,8 +29,12 @@ int *d_x_delta = nullptr;
 int *d_y_delta = nullptr;
 //Data *d_grid = nullptr;
 
-void InitGpu(Data *grid, index_t n){
+void InitGpu(Data *grid, index_t n, index_t small_n, index_t *ind_stream){
 	// Offload Data
+	CUDA_CALL(cudaMalloc(&d_stream, sizeof(index_t) * small_n));
+	CUDA_CALL(cudaMemcpy(d_stream, &ind_stream[0],
+			sizeof(index_t) * small_n, cudaMemcpyHostToDevice));
+
 	CUDA_CALL(cudaMalloc(&d_w, sizeof(real_t) * 9));
 	CUDA_CALL(cudaMemcpy(d_w, &(grid->w[0]),
 			sizeof(real_t) * 9, cudaMemcpyHostToDevice));
@@ -172,7 +177,10 @@ void KernelLaunch(index_t n, multi_index_t m, Data *grid, real_t omega){
 			omega, d_w, d_index_x, d_index_y);
 	cudaDeviceSynchronize();
 
-	StreamingKernel<<<(number_of_blocks), threads_per_block>>>(n, m[0], m[1], d_boundary, d_f, d_inv, d_x_delta, d_y_delta);
+	n = (m[0] -2) * (m[1] - 2);
+	number_of_blocks = (n + threads_per_block - 1) / threads_per_block;
+
+	StreamingKernel<<<(number_of_blocks), threads_per_block>>>(n, m[0], m[1], d_boundary, d_f, d_inv, d_x_delta, d_y_delta, d_stream);
 }
 
 void CopyToCpu(index_t n, real_t * u_tmp, real_t * v_tmp, real_t * p_tmp){
@@ -182,6 +190,7 @@ void CopyToCpu(index_t n, real_t * u_tmp, real_t * v_tmp, real_t * p_tmp){
 }
 
 void FreeCuda(){
+	CUDA_CALL(cudaFree(d_stream));
 	CUDA_CALL(cudaFree(d_w));
 	CUDA_CALL(cudaFree(d_index_x));
 	CUDA_CALL(cudaFree(d_index_y));
@@ -307,21 +316,23 @@ __global__ void CollisionKernel(index_t n, index_t m0, index_t m1, real_t * d_bo
 }
 
 
-__global__ void StreamingKernel(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t *d_f, int * d_inv, int *d_x_delta, int *d_y_delta){
-	index_t idx = (threadIdx.x + blockIdx.x * blockDim.x) + m0;
-	if(idx < n - m0 && threadIdx.x != 0 && threadIdx.x != m0 - 1){
+__global__ void StreamingKernel(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t *d_f, int * d_inv, int *d_x_delta, int *d_y_delta, index_t *d_stream){
+	index_t k = (threadIdx.x + blockIdx.x * blockDim.x);
+	if(k < n){
+		index_t idx = d_stream[k];
+
 		// Boundarys don't stream
 		if(!d_boundary[idx]){
-			d_f[idx] = d_f[idx + 9 * n];
+			d_f[idx] = d_f[idx + 9 * m0 * m1];
 			for(int j = 1; j < 9; ++j){
 				//neighbor is boundary
 				//debug = k - x_delta[j] - y_delta[j] * m;
 				if(d_boundary[idx - d_x_delta[j] - d_y_delta[j] * m0]){
 					// bounceback
-					d_f[idx + j*n] = d_f[idx + (d_inv[j] + 9) * n];
+					d_f[idx + j*m0 * m1] = d_f[idx + (d_inv[j] + 9) * m0 * m1];
 				}else{
 					//neighbor is no boundary (standard)
-					d_f[idx + j * n] = d_f[idx - d_x_delta[j] - d_y_delta[j] * m0 + (9 + j) * n];
+					d_f[idx + j * m0 * m1] = d_f[idx - d_x_delta[j] - d_y_delta[j] * m0 + (9 + j) * m0 * m1];
 				}
 			}
 		}
@@ -331,7 +342,6 @@ __global__ void StreamingKernel(index_t n, index_t m0, index_t m1, real_t * d_bo
 
 __global__ void DebugKernel(Data * d_grid) {
 	if(threadIdx.x == 0){
-		printf("Hi \n");
-		printf("w: %f \n", d_grid->w[0]);
+		printf("Hi or something meaningful \n");
 	}
 }

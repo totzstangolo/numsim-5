@@ -6,6 +6,6 @@ Go into build directory
 
 Stay in working directory. To run the cases, execute:
 
-	time ./numsim -geom ../geom/cavity.geom -param ../param/default.param 
+	time ./numsim -geom ../geom/cav128.geom -param ../param/def128.param 
 
 Remember to remove the VTK directory after each case run.

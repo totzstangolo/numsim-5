@@ -61,7 +61,7 @@ struct Data{
 
 };
 
-void InitGpu(Data *grid, index_t n);
+void InitGpu(Data *grid, index_t n, index_t small_n, index_t *ind_stream);
 
 void KernelLaunch(index_t n, multi_index_t m, Data *grid, real_t omega);
 
@@ -82,7 +82,7 @@ __global__ void BoundKernelSouth(index_t n, index_t m0, index_t m1, real_t * d_b
 __global__ void CollisionKernel(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f, real_t *d_bound_vel,
 		real_t omega, real_t* d_w, real_t* d_index_x, real_t* d_index_y);
 
-__global__ void StreamingKernel(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t *d_f, int * d_inv, int *d_x_delta, int *d_y_delta);
+__global__ void StreamingKernel(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t *d_f, int * d_inv, int *d_x_delta, int *d_y_delta, index_t *d_stream);
 
 
 
@@ -135,6 +135,8 @@ public:
   real_t * u_tmp;
   real_t * v_tmp;
   real_t * p_tmp;
+
+  index_t *ind_stream;
 
 
 

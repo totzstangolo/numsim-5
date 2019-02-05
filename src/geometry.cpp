@@ -18,42 +18,11 @@
 #include "geometry.hpp"
 #include "iterator.hpp"
 #include "grid.hpp"
-//#include "communicator.hpp"
 #include "parameter.hpp"
 #include <stdio.h>
 #include <string.h>
 
 
-/*
- *
- * typeInH:
- * HHHHHHHHHHHHHHHHHHHHHHHHHHHH
- *  \     |     |     |      /
- *   \    v     v     v     /
- *     ---------------------
- *
- * typeInV:
- *  V \
- *  V >\
- *  V > |
- *  V > |
- *  V >/
- *  V /
- *
- * typeSlipH:
- * ----------------------
- *  ->  ->  ->  ->  ->
- *
- * typeSlipV:
- * |
- * | ^
- * | |
- * |
- * | ^
- * | |
- * |
- *
- * */
 
 Geometry::~Geometry() {
     if (_cell)
@@ -65,7 +34,7 @@ void Geometry::Load(const char *file) {
    real_t inval[2];
    real_t inval_vel[8];
    index_t inval_ind[4];
-   char name[200000];
+   char name[600000];
    while (!feof(handle)) {
      if (!fscanf(handle, "%s =", name))
        continue;

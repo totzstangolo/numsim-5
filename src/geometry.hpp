@@ -38,23 +38,6 @@ typedef enum {
   typeInV    // Vertical inflow (parabolic)
 } CellType_t;
 
-/*typedef enum {
-  typeHot,
-  typeCold,
-  typeInsul,
- } CellTemp_t;*/
-
-
-/// Typedef for cell boundary type (which boundary cells are fluid)
-//      |  N   |
-//   ___|______|___
-//      |      |
-//    W | CELL | E
-//   ___|______|___
-//      |      |
-//      |   S  |
-// Cells on the diagonals can be ignored
-// combinations not listed are invalid
 typedef enum {
   cellNone = 0, // Cell is not surrounded by fluid, or is fluid cell
   cellN = 1,    // Cell N is fluid
