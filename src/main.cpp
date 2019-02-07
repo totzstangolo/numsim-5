@@ -113,7 +113,6 @@ int main(int argc, char **argv) {
 multi_index_t dim;
 dim[0] = 1;
 dim[1] = 1;
-
 #ifdef USE_VTK
 VTK vtk(geom.Mesh(), geom.Length(), geom.TotalLength(), 0,
       1, dim);

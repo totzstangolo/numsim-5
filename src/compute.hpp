@@ -36,9 +36,15 @@ if ( cudaSuccess != result )            \
     std::cerr << "CUDA error " << result << " in " << __FILE__ << ":" << __LINE__ << ": " << cudaGetErrorString( result ) << " (" << #call << ")" << std::endl;  \
 }
 
-
+#define THREADS_PER_BLOCK 256
+#define THREADS_SMALL 32
 //------------------------------------------------------------------------------
 
+/*
+real_t *h_u = nullptr;
+real_t *h_v = nullptr;
+real_t *h_rho = nullptr;
+*/
 
 struct Data{
 	index_t sizeTest;
@@ -61,32 +67,32 @@ struct Data{
 
 };
 
-void InitGpu(Data *grid, index_t n, index_t small_n, index_t *ind_stream);
+void InitGpu(Data *grid, index_t n, index_t m0, index_t m1);
 
 void KernelLaunch(index_t n, multi_index_t m, Data *grid, real_t omega);
 
-void CopyToCpu(index_t n, real_t * u_tmp, real_t * v_tmp, real_t * p_tmp);
+void CopyToCpu(index_t n); //, real_t * u_tmp, real_t * v_tmp, real_t * p_tmp);
 
 void FreeCuda();
 
-__global__ void ForcesKernel(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f, real_t *d_bound_vel);
+__global__ void ForcesKernel(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f);
 
-__global__ void BoundKernelEast(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f, real_t *d_bound_vel);
+__global__ void BoundKernelEast(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f);
 
-__global__ void BoundKernelWest(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f, real_t *d_bound_vel);
+__global__ void BoundKernelWest(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f);
 
-__global__ void BoundKernelNorth(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f, real_t *d_bound_vel);
+__global__ void BoundKernelNorth(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f);
 
-__global__ void BoundKernelSouth(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f, real_t *d_bound_vel);
+__global__ void BoundKernelSouth(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f);
 
-__global__ void CollisionKernel(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f, real_t *d_bound_vel,
-		real_t omega, real_t* d_w, real_t* d_index_x, real_t* d_index_y);
+__global__ void CollisionKernel(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f,
+		real_t omega);
 
-__global__ void StreamingKernel(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t *d_f, int * d_inv, int *d_x_delta, int *d_y_delta, index_t *d_stream);
+__global__ void StreamingKernel(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t *d_f);
 
 
 
-__global__ void DebugKernel(Data* grid);
+__global__ void DebugKernel();
 
 
 
@@ -131,12 +137,9 @@ public:
   real_t* GetV_tmp() const{ return v_tmp;}
   real_t* Getp_tmp() const{ return p_tmp;}*/
 
-  // copy dummies
-  real_t * u_tmp;
-  real_t * v_tmp;
-  real_t * p_tmp;
-
-  index_t *ind_stream;
+  real_t * h_u;
+  real_t * h_v;
+  real_t * h_rho;
 
 
 

@@ -90,30 +90,17 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 
 	_p = new Grid(_geom, compute_offset);
 	_T = new Grid(_geom, compute_offset);
-	//_tmp = new Grid(_geom, compute_offset);
 	_p->Initialize(0);
 	_T->Initialize(0);
 	// Gitterschraube
 	index_t n = (_geom->Size()[0]) * (_geom->Size()[1]);
 	grid = new Data(n);
-	u_tmp = new real_t[n];
+	/*u_tmp = new real_t[n];
 	v_tmp = new real_t[n];
-	p_tmp = new real_t[n];
-	index_t small_n = (_geom->Size()[0] -2) * (_geom->Size()[1] -2);
-	ind_stream = new index_t[small_n];
-	index_t count = 0;
-	for(index_t h = 1; h < _geom->Size()[1] - 1; ++h){
-			for(index_t i = 1; i < _geom->Size()[0] - 1; ++i){
-				index_t k = h * _geom->Size()[0] + i;
-				ind_stream[count] = k;
-				count++;
-			}
-	}
-	printf("Hi \n");
+	p_tmp = new real_t[n];*/
 	Init();
-	printf("Hi \n");
-	InitGpu(grid, n, small_n, ind_stream);
-	printf("Hi after Init \n");
+	InitGpu(grid, n, _geom->Size()[0], _geom->Size()[1]);
+	printf("Hi after Init %d\n", n);
 
 
 
@@ -124,10 +111,9 @@ Compute::~Compute(){
 	delete _v;
 	delete _p;
 	delete _T;
-	delete u_tmp;
+	/*delete u_tmp;
 	delete v_tmp;
-	delete p_tmp;
-	delete ind_stream;
+	delete p_tmp;*/
 }
 
 void Compute::Init(){
@@ -185,14 +171,14 @@ void Compute::Init(){
 
 	// east is in or outflow
 	if(grid->bound_stat[0] == 1){
-		for(index_t i = 0; i < m[1]; ++i){
+		for(index_t i = 1; i < m[1] - 1; ++i){
 			grid->boundary[(i + 1) * m[0] - 1] = 0;
 		}
 	}
 
 	// west is in or outflow
 	if(grid->bound_stat[1] == 1){
-		for(index_t i = 0; i < m[1]; ++i){
+		for(index_t i = 1; i < m[1] - 1; ++i){
 			grid->boundary[i * m[0]] = 0;
 		}
 	}
@@ -238,7 +224,7 @@ void Compute::TimeStep(bool printInfo){
 	real_t omega = 1.0 / (3.0*nu+1.0/2.0); //relaxation parameter
 
     for(index_t i = 0; i <100; ++i){
-    	KernelLaunch(n, m, grid, omega);
+    	//KernelLaunch(n, m, grid, omega);
     }
 
 	if(printInfo) {
@@ -394,10 +380,11 @@ void Compute::TimeStep(bool printInfo){
 	memcpy(&_p->Cell(0), &grid->rho[0], sizeof(real_t) * n);
 	*/
 
-	CopyToCpu(n, u_tmp, v_tmp, p_tmp);
-memcpy(&_u->Cell(0), u_tmp, sizeof(real_t) * n);
-memcpy(&_v->Cell(0), v_tmp, sizeof(real_t) * n);
-memcpy(&_p->Cell(0), p_tmp, sizeof(real_t) * n);
+	CopyToCpu(n);//, u_tmp, v_tmp, p_tmp);
+	printf("Hi after copy \n");
+	memcpy(&_u->Cell(0), h_u, sizeof(real_t) * n);
+	memcpy(&_v->Cell(0), h_v, sizeof(real_t) * n);
+	memcpy(&_p->Cell(0), h_rho, sizeof(real_t) * n);
 
 
 	_t = _t + 100 *dt;
