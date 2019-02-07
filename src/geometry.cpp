@@ -42,6 +42,7 @@ void Geometry::Load(const char *file) {
        if (fscanf(handle, " %f %f\n", &inval[0], &inval[1])) {
          _size[0] = inval[0];
          _size[1] = inval[1];
+         printf("size: %d, %d \n", _size[0], _size[1]);
        }
        continue;
      }
@@ -155,7 +156,6 @@ void Geometry::Load(const char *file) {
 
    _size[0] += 2;
    _size[1] += 2;
-
 
     _bsize = _size;
  }

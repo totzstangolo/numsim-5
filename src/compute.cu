@@ -33,9 +33,6 @@ real_t *d_v = nullptr;
 real_t *d_f = nullptr;
 cudaStream_t streams[4];
 
-real_t *h_u = nullptr;
-real_t *h_v = nullptr;
-real_t *h_rho = nullptr;
 
 
 
@@ -76,11 +73,7 @@ void InitGpu(Data *grid, index_t n, index_t m0, index_t m1){
 		cudaStreamCreate(&streams[i]);
 	}
 
-	CUDA_CALL(cudaHostAlloc((void**)&h_u, sizeof(real_t) * n, cudaHostAllocPortable));
-	CUDA_CALL(cudaHostAlloc((void**)&h_v, sizeof(real_t) * n, cudaHostAllocPortable));
-	CUDA_CALL(cudaHostAlloc((void**)&h_rho, sizeof(real_t) * n, cudaHostAllocPortable));
-
-	printf("ptr %p %p \n", h_u, h_v);
+	printf("5\n");
 
 
 	// Offload Grid
@@ -100,9 +93,15 @@ void InitGpu(Data *grid, index_t n, index_t m0, index_t m1){
 	CUDA_CALL(cudaMemcpy(d_v, &(grid->v[0]),
 			sizeof(real_t) * n, cudaMemcpyHostToDevice));
 
+	printf("6\n");
+
+
 	CUDA_CALL(cudaMalloc(&d_f, sizeof(real_t) * n * 18));
-	CUDA_CALL(cudaMemcpy(d_f, &(grid->f[0][0]),
+	CUDA_CALL(cudaMemcpy(d_f, &(grid->f[0]),
 			sizeof(real_t) * n * 18, cudaMemcpyHostToDevice));
+
+	printf("7\n");
+
 
 }
 
@@ -145,12 +144,10 @@ void KernelLaunch(index_t n, multi_index_t m, Data *grid, real_t omega){
 	StreamingKernel<<< number_of_blocks_stream, THREADS_PER_BLOCK>>>(n, m[0], m[1], d_boundary, d_f);
 }
 
-void CopyToCpu(index_t n){//, real_t * u_tmp, real_t * v_tmp, real_t * p_tmp){
-	printf("Hi from CopyToCpu and %d \n", n);
-	printf("ptr %p %p \n", h_u, h_v);
-	CUDA_CALL(cudaMemcpy(h_u, d_u, sizeof(real_t) * n,cudaMemcpyDeviceToHost));
-	CUDA_CALL(cudaMemcpy(h_v, d_v, sizeof(real_t) * n,cudaMemcpyDeviceToHost));
-	CUDA_CALL(cudaMemcpy(h_rho, d_rho, sizeof(real_t) * n,cudaMemcpyDeviceToHost));
+void CopyToCpu(index_t n, real_t * u_tmp, real_t * v_tmp, real_t * p_tmp){
+	CUDA_CALL(cudaMemcpy(u_tmp, d_u, sizeof(real_t) * n,cudaMemcpyDeviceToHost));
+	CUDA_CALL(cudaMemcpy(v_tmp, d_v, sizeof(real_t) * n,cudaMemcpyDeviceToHost));
+	CUDA_CALL(cudaMemcpy(p_tmp, d_rho, sizeof(real_t) * n,cudaMemcpyDeviceToHost));
 }
 
 void FreeCuda(){
@@ -159,9 +156,6 @@ void FreeCuda(){
 	CUDA_CALL(cudaFree(d_u));
 	CUDA_CALL(cudaFree(d_v));
 	CUDA_CALL(cudaFree(d_f));
-	cudaFreeHost(h_u);
-	cudaFreeHost(h_v);
-	cudaFreeHost(h_rho);
 }
 
 

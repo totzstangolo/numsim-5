@@ -40,18 +40,14 @@ if ( cudaSuccess != result )            \
 #define THREADS_SMALL 32
 //------------------------------------------------------------------------------
 
-/*
-real_t *h_u = nullptr;
-real_t *h_v = nullptr;
-real_t *h_rho = nullptr;
-*/
+
 
 struct Data{
 	index_t sizeTest;
 	real_t* w;
 	real_t* index_x;
 	real_t* index_y;
-	real_t** f;
+	real_t* f;
 	real_t* boundary;
 	real_t* rho;
 	real_t* u;
@@ -67,11 +63,13 @@ struct Data{
 
 };
 
+
+
 void InitGpu(Data *grid, index_t n, index_t m0, index_t m1);
 
 void KernelLaunch(index_t n, multi_index_t m, Data *grid, real_t omega);
 
-void CopyToCpu(index_t n); //, real_t * u_tmp, real_t * v_tmp, real_t * p_tmp);
+void CopyToCpu(index_t n, real_t * u_tmp, real_t * v_tmp, real_t * p_tmp);
 
 void FreeCuda();
 
@@ -133,17 +131,13 @@ public:
 
   static void CudaFree();
 
-  /*real_t* GetU_tmp() const{ return u_tmp;}
-  real_t* GetV_tmp() const{ return v_tmp;}
-  real_t* Getp_tmp() const{ return p_tmp;}*/
-
-  real_t * h_u;
-  real_t * h_v;
-  real_t * h_rho;
+  // copy dummies
+  real_t * u_tmp;
+  real_t * v_tmp;
+  real_t * p_tmp;
 
 
-
-private:
+ private:
   // testing
   index_t _iter_count;
   real_t _max_dt;

@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
   printf("Hi \n");
 
   parser.exec(argc, argv);
-  printf("Hi \n");
+  printf("Hi after exec\n");
 
   // Create the fluid solver
   Compute comp(&geom, &param);

@@ -28,10 +28,10 @@ Data::Data(const index_t size){
 	index_y = new real_t[9];
 	bound_stat = new index_t[4];
 	bound_vel = new real_t[8];
-	f = new real_t* [18];
-	for(int i = 0; i < 18; ++i){
+	f = new real_t [18 * size];
+	/*for(int i = 0; i < 18; ++i){
 		f[i] = new real_t[size];
-	}
+	}*/
 	boundary = new real_t[size];
 	rho = new real_t[size];
 	u = new real_t[size];
@@ -45,9 +45,9 @@ Data::~Data(){
 		delete[] index_y;
 		delete[] bound_stat;
 		delete[] bound_vel;
-		for(int i = 0; i < 18; ++i){
+		/*for(int i = 0; i < 18; ++i){
 			delete[] f[i];
-		}
+		}*/
 		delete[] f;
 		delete[] boundary;
 		delete[] rho;
@@ -72,12 +72,16 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 	h2[1] = h[1]*h[1];
 	_dtlimit = h2[0]*h2[1]*_param->Re()/(2*(h2[0]+h2[1]));
 
+	printf("1\n");
 	if (_param->Pr()>0)
 		_dtlimit = std::min<real_t>(_param->Re()*_param->Pr()/(2*(1/h2[0]+1/h2[1])),_dtlimit);
 
 	_epslimit = _param->Eps() * _param->Eps() * _geom->Size()[0] * _geom->Size()[1];
 
 	// creating grids with offset
+
+	printf("2\n");
+
 	multi_real_t compute_offset;
 	compute_offset[0] = -0.5 * h[0];
 	compute_offset[1] = -0.5 * h[0];
@@ -95,10 +99,15 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 	// Gitterschraube
 	index_t n = (_geom->Size()[0]) * (_geom->Size()[1]);
 	grid = new Data(n);
-	/*u_tmp = new real_t[n];
+	u_tmp = new real_t[n];
 	v_tmp = new real_t[n];
-	p_tmp = new real_t[n];*/
+	p_tmp = new real_t[n];
+	printf("3\n");
+
+
 	Init();
+	printf("4\n");
+
 	InitGpu(grid, n, _geom->Size()[0], _geom->Size()[1]);
 	printf("Hi after Init %d\n", n);
 
@@ -111,9 +120,9 @@ Compute::~Compute(){
 	delete _v;
 	delete _p;
 	delete _T;
-	/*delete u_tmp;
+	delete u_tmp;
 	delete v_tmp;
-	delete p_tmp;*/
+	delete p_tmp;
 }
 
 void Compute::Init(){
@@ -144,8 +153,8 @@ void Compute::Init(){
 		 grid->u[i] = 0.0;
 		 grid->v[i] = 0.0;
 		 for(index_t j = 0; j < 9; ++j) {
-			 grid->f[j][i] = grid->w[j];
-			 grid->f[j + 9][i] = grid->w[j];
+			 grid->f[i + j*n] = grid->w[j];
+			 grid->f[i +(9 +j)* n] = grid->w[j];
 		 }
 
 	}
@@ -200,6 +209,9 @@ void Compute::Init(){
 }
 
 void Compute::TimeStep(bool printInfo){
+	index_t steps = 100;
+
+
 	index_t n = (_geom->Size()[0]) * (_geom->Size()[1]);
 	multi_index_t m;
 	m[0] = _geom->Size()[0];
@@ -223,8 +235,8 @@ void Compute::TimeStep(bool printInfo){
 	real_t nu    = vel_nu *_geom->Size()[0] / _param->Re();
 	real_t omega = 1.0 / (3.0*nu+1.0/2.0); //relaxation parameter
 
-    for(index_t i = 0; i <100; ++i){
-    	//KernelLaunch(n, m, grid, omega);
+    for(index_t i = 0; i <steps; ++i){
+    	KernelLaunch(n, m, grid, omega);
     }
 
 	if(printInfo) {
@@ -379,15 +391,16 @@ void Compute::TimeStep(bool printInfo){
 	memcpy(&_v->Cell(0), &grid->v[0], sizeof(real_t) * n);
 	memcpy(&_p->Cell(0), &grid->rho[0], sizeof(real_t) * n);
 	*/
+	#ifdef USE_VTK
+	CopyToCpu(n, u_tmp, v_tmp, p_tmp);
 
-	CopyToCpu(n);//, u_tmp, v_tmp, p_tmp);
-	printf("Hi after copy \n");
-	memcpy(&_u->Cell(0), h_u, sizeof(real_t) * n);
-	memcpy(&_v->Cell(0), h_v, sizeof(real_t) * n);
-	memcpy(&_p->Cell(0), h_rho, sizeof(real_t) * n);
+	memcpy(&_u->Cell(0), u_tmp, sizeof(real_t) * n);
+	memcpy(&_v->Cell(0), v_tmp, sizeof(real_t) * n);
+	memcpy(&_p->Cell(0), p_tmp, sizeof(real_t) * n);
+	#endif // USE_VTK
 
 
-	_t = _t + 100 *dt;
+	_t = _t + steps *dt;
 
 	if(printInfo)
 		// printf("time: %f \n itercount: %d \n max_dt: %f \n", _t, _iter_count, _max_dt);
