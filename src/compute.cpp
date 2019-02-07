@@ -535,4 +535,3 @@ void Compute::RHS(const real_t &dt){
 void Compute::CudaFree(){
 	FreeCuda();
 }
-

@@ -30,7 +30,9 @@ debug = ARGUMENTS.get('debug', 1)
 # macro similar to mpic++
 
 # parallel
-env.Replace(CXX='mpic++')
+# env.Replace(CXX='mpic++')
+
+env.Replace(CXX='nvcc')
 
 # serial
 # env.Replace(CXX='g++')
@@ -42,7 +44,10 @@ env.Append(
                      "-Wextra",
                      "-pedantic",
                      "-std=c++14",
-                     "-Wno-unused-parameter"
+                     "-Wno-unused-parameter",
+                     "-L/usr/local/cuda/lib64",
+                     "-lcudart",
+                     # "$(pkg-config --cflags --libs sdl2)"
            ]
           )
 

@@ -66,8 +66,3 @@ target_compile_features(numsim PUBLIC cxx_std_14)
 set_target_properties( numsim
                        PROPERTIES CUDA_SEPARABLE_COMPILATION ON
 )
-
-
-
-
-

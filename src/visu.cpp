@@ -23,7 +23,7 @@ uint8_t HueR (real_t value, real_t min, real_t max) {
   if (value < min) value = min;
   if (value > max) value = max;
   double dval = max - min;
-  
+
   if (value < (min + 0.25 * dval))
     return 0;
   if (value < (min + 0.5  * dval))
@@ -37,7 +37,7 @@ uint8_t HueG (real_t value, real_t min, real_t max) {
   if (value < min) value = min;
   if (value > max) value = max;
   double dval = max - min;
-  
+
   if (value < (min + 0.25 * dval))
     return 255*(4 * (value - min) / dval);
   if (value < (min + 0.5  * dval))
@@ -51,7 +51,7 @@ uint8_t HueB (real_t value, real_t min, real_t max) {
   if (value < min) value = min;
   if (value > max) value = max;
   double dval = max - min;
-  
+
   if (value < (min + 0.25 * dval))
     return 255;
   if (value < (min + 0.5  * dval))
