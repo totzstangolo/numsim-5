@@ -209,7 +209,7 @@ __global__ void BoundKernelWest(index_t n, index_t m0, index_t m1, real_t * d_bo
 __global__ void BoundKernelNorth(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f){
 	// inflow from north
 	index_t idx = n - m0 + (threadIdx.x + blockIdx.x * blockDim.x);
-	if(idx < n){
+	if(idx < n - 1 && idx > n - m0){
 		d_u[idx] = d_bound_vel[4];
 		d_v[idx] = d_bound_vel[5];
 		d_rho[idx] = 1.0/(1.0 +d_bound_vel[5]) *
@@ -227,7 +227,7 @@ __global__ void BoundKernelNorth(index_t n, index_t m0, index_t m1, real_t * d_b
 __global__ void BoundKernelSouth(index_t n, index_t m0, index_t m1, real_t * d_boundary, real_t * d_rho, real_t * d_u, real_t * d_v, real_t *d_f){
 	// inflow from south
 	index_t idx = (threadIdx.x + blockIdx.x * blockDim.x);
-	if(idx < m0){
+	if(idx < m0 - 1 && idx > 0){
 		d_u[idx] = d_bound_vel[6];
 		d_v[idx] = d_bound_vel[7];
 		d_rho[idx] = 1.0/(1.0 +d_bound_vel[7]) *

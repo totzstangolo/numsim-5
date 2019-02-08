@@ -182,14 +182,14 @@ void Compute::Init(){
 	}
 	// north is in or outflow
 	if(grid->bound_stat[2] == 1){
-		for(index_t i = 0; i < m[0]; ++i){
+		for(index_t i = 1; i < m[0] -1; ++i){
 			grid->boundary[n - m[0] + i] = 0;
 		}
 	}
 
 	// south is in or outflow
 	if(grid->bound_stat[3] == 1){
-		for(index_t i = 0; i < m[0]; ++i){
+		for(index_t i = 1; i < m[0] -1; ++i){
 			grid->boundary[i] = 0;
 		}
 	}
@@ -198,7 +198,7 @@ void Compute::Init(){
 }
 
 void Compute::TimeStep(bool printInfo){
-	index_t steps = 100;
+	index_t steps = 20;
 
 
 	index_t n = (_geom->Size()[0]) * (_geom->Size()[1]);
