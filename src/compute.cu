@@ -68,13 +68,11 @@ void InitGpu(Data *grid, index_t n, index_t m0, index_t m1){
 	// y_delta
 	CUDA_CALL(cudaMemcpyToSymbol(d_y_delta,(void*)&y_delta[0],9*sizeof(int),0, cudaMemcpyHostToDevice));
 
+	// create streams for boundary
 	cudaStream_t streams[4];
 	for(int i = 0; i< 4; ++i){
 		cudaStreamCreate(&streams[i]);
 	}
-
-	printf("5\n");
-
 
 	// Offload Grid
 	CUDA_CALL(cudaMalloc(&d_boundary, sizeof(real_t) * n));
@@ -93,15 +91,9 @@ void InitGpu(Data *grid, index_t n, index_t m0, index_t m1){
 	CUDA_CALL(cudaMemcpy(d_v, &(grid->v[0]),
 			sizeof(real_t) * n, cudaMemcpyHostToDevice));
 
-	printf("6\n");
-
-
 	CUDA_CALL(cudaMalloc(&d_f, sizeof(real_t) * n * 18));
 	CUDA_CALL(cudaMemcpy(d_f, &(grid->f[0]),
 			sizeof(real_t) * n * 18, cudaMemcpyHostToDevice));
-
-	printf("7\n");
-
 
 }
 

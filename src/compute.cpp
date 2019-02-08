@@ -72,15 +72,12 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 	h2[1] = h[1]*h[1];
 	_dtlimit = h2[0]*h2[1]*_param->Re()/(2*(h2[0]+h2[1]));
 
-	printf("1\n");
 	if (_param->Pr()>0)
 		_dtlimit = std::min<real_t>(_param->Re()*_param->Pr()/(2*(1/h2[0]+1/h2[1])),_dtlimit);
 
 	_epslimit = _param->Eps() * _param->Eps() * _geom->Size()[0] * _geom->Size()[1];
 
 	// creating grids with offset
-
-	printf("2\n");
 
 	multi_real_t compute_offset;
 	compute_offset[0] = -0.5 * h[0];
@@ -102,17 +99,9 @@ Compute::Compute(const Geometry *geom, const Parameter *param){
 	u_tmp = new real_t[n];
 	v_tmp = new real_t[n];
 	p_tmp = new real_t[n];
-	printf("3\n");
-
 
 	Init();
-	printf("4\n");
-
 	InitGpu(grid, n, _geom->Size()[0], _geom->Size()[1]);
-	printf("Hi after Init %d\n", n);
-
-
-
 }
 
 Compute::~Compute(){
@@ -239,9 +228,6 @@ void Compute::TimeStep(bool printInfo){
     	KernelLaunch(n, m, grid, omega);
     }
 
-	if(printInfo) {
-		printf("dt: %f \n", dt);
-	}
 	/////////////////////////////////////////////////////////////////////////
 	////////////// LATTICE BOLTZMANN IMPLEMENTATION /////////////////////////
 	/////////////////////////////////////////////////////////////////////////

@@ -53,34 +53,21 @@ int main(int argc, char **argv) {
   // Create parameter and geometry instances with default values
   //Communicator comm(&argc, &argv);
   Parameter param;
-  printf("Hi \n");
-
   Geometry geom;
-  printf("Hi \n");
-
   ARGVParser parser;
   parser.bind("-geom", [&geom](int ac, char **av) -> int {
 	geom.Load(av[0]);
     return 1;
   });
-  printf("Hi \n");
-
   parser.bind("-param", [&param](int ac, char **av) -> int {
     param.Load(av[0]);
     return 1;
   });
-  printf("Hi \n");
 
   parser.exec(argc, argv);
-  printf("Hi after exec\n");
 
   // Create the fluid solver
   Compute comp(&geom, &param);
-
-  printf("Hi \n");
-
-
-
 
 
 
@@ -164,7 +151,6 @@ VTK vtk(geom.Mesh(), geom.Length(), geom.TotalLength(), 0,
 
     // suppress output on other nodes than rank 0
     bool printOnlyOnMaster = 1;
-    printf("Hi \n");
     comp.TimeStep(printOnlyOnMaster);
   }
   comp.CudaFree;

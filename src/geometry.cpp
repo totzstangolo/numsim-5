@@ -34,7 +34,7 @@ void Geometry::Load(const char *file) {
    real_t inval[2];
    real_t inval_vel[8];
    index_t inval_ind[4];
-   char name[20000000];
+   char name[2000000];
    while (!feof(handle)) {
      if (!fscanf(handle, "%s =", name))
        continue;
